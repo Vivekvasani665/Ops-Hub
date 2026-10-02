@@ -1,15 +1,18 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import type { OrderStatus } from '@/lib/types';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/format';
+import { categoryIcon, categoryTint, sizedImage } from '@/lib/catalog';
 
 function cx(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'dark' | 'secondary' | 'outline' | 'ghost';
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-slate-900 text-white hover:bg-slate-800 disabled:bg-slate-400',
+  primary: 'bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-blue-300',
+  dark: 'bg-slate-900 text-white hover:bg-slate-800 disabled:bg-slate-400',
   secondary: 'bg-white text-slate-900 ring-1 ring-slate-300 hover:bg-slate-50 disabled:text-slate-400',
+  outline: 'bg-white text-blue-600 ring-1 ring-blue-600 hover:bg-blue-50 disabled:text-blue-300 disabled:ring-blue-200',
   ghost: 'text-slate-600 hover:text-slate-900 hover:bg-slate-100',
 };
 
@@ -26,7 +29,7 @@ export function Button({
       {...props}
       disabled={disabled || loading}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed',
         VARIANTS[variant],
         className,
       )}
@@ -44,7 +47,7 @@ export function Input({ className, invalid, ...props }: InputHTMLAttributes<HTML
       aria-invalid={invalid || undefined}
       className={cx(
         'w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2',
-        invalid ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-slate-500 focus:ring-slate-200',
+        invalid ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100',
         className,
       )}
     />
@@ -56,7 +59,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
     <textarea
       {...props}
       className={cx(
-        'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200',
+        'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100',
         className,
       )}
     />
@@ -123,21 +126,36 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
   );
 }
 
-export function ProductThumb({ name, category, className }: { name: string; category: string; className?: string }) {
-  // No product images in the catalog: a stable tinted tile with initials per category.
-  const palettes = ['bg-sky-100 text-sky-700', 'bg-violet-100 text-violet-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700', 'bg-rose-100 text-rose-700', 'bg-indigo-100 text-indigo-700'];
-  const hash = [...category].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
-  const initials = name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+/** Product photo, or a tinted category-icon tile when the product has no image. */
+export function ProductImage({
+  src,
+  name,
+  category,
+  width = 600,
+  className,
+  iconClassName = 'size-1/3',
+}: {
+  src: string | null | undefined;
+  name: string;
+  category: string;
+  width?: number;
+  className?: string;
+  iconClassName?: string;
+}) {
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element -- remote catalog URLs from any host
+    return <img src={sizedImage(src, width)} alt={name} loading="lazy" className={cx('object-cover', className)} />;
+  }
+  const Icon = categoryIcon(category);
   return (
-    <div className={cx('flex items-center justify-center font-semibold tracking-wide', palettes[hash % palettes.length], className)} aria-hidden="true">
-      {initials}
+    <div className={cx('flex items-center justify-center', categoryTint(category), className)} role="img" aria-label={name}>
+      <Icon className={iconClassName} strokeWidth={1.25} />
     </div>
   );
+}
+
+export function Card({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={cx('rounded-2xl border border-slate-200 bg-white', className)}>{children}</div>;
 }
 
 export { cx };

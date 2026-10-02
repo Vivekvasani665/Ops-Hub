@@ -54,6 +54,21 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 
 const json = (data: unknown) => JSON.stringify(data);
 
+export type ProductSort = 'name' | 'price_asc' | 'price_desc' | 'newest';
+
+export interface ProductQuery {
+  search?: string;
+  categories?: string[];
+  /** rupees */
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
+  sort?: ProductSort;
+  page?: number;
+  limit?: number;
+  ids?: string[];
+}
+
 export const api = {
   store: () => request<{ data: Store }>('/store').then((r) => r.data),
 
@@ -71,11 +86,16 @@ export const api = {
   logout: () => request<unknown>('/auth/logout', { method: 'POST' }),
 
   // catalog
-  products: (params: { search?: string; category?: string; page?: number; ids?: string[] } = {}) => {
+  products: (params: ProductQuery = {}) => {
     const q = new URLSearchParams();
     if (params.search) q.set('search', params.search);
-    if (params.category) q.set('category', params.category);
+    if (params.categories?.length) q.set('category', params.categories.join(','));
+    if (params.minPrice !== undefined) q.set('minPrice', String(params.minPrice));
+    if (params.maxPrice !== undefined) q.set('maxPrice', String(params.maxPrice));
+    if (params.inStock) q.set('inStock', 'true');
+    if (params.sort) q.set('sort', params.sort);
     if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
     if (params.ids) {
       q.set('ids', params.ids.join(','));
       q.set('limit', '60');

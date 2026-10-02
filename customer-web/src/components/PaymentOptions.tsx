@@ -1,13 +1,21 @@
+import { Banknote, CreditCard, QrCode, Wallet, type LucideIcon } from 'lucide-react';
 import type { PreferredMethod } from '@/lib/razorpay';
 import { cx } from './ui';
 
 export type PaymentChoice = PreferredMethod | 'cod';
 
-const OPTIONS: { value: PaymentChoice; title: string; body: string; online: boolean }[] = [
-  { value: 'upi', title: 'UPI', body: 'Google Pay, PhonePe, Paytm, BHIM or scan a UPI QR code', online: true },
-  { value: 'card', title: 'Card', body: 'Credit or debit card — Visa, Mastercard, RuPay, Amex', online: true },
-  { value: 'other', title: 'Digital payment', body: 'Wallets, net banking and other Razorpay methods', online: true },
-  { value: 'cod', title: 'Cash on delivery', body: 'Pay in cash when your order arrives', online: false },
+export const PAYMENT_CHOICE_LABEL: Record<PaymentChoice, string> = {
+  upi: 'UPI',
+  card: 'Card',
+  other: 'Digital payment',
+  cod: 'Cash on delivery',
+};
+
+const OPTIONS: { value: PaymentChoice; title: string; body: string; icon: LucideIcon; online: boolean }[] = [
+  { value: 'upi', title: 'UPI', body: 'Google Pay, PhonePe, Paytm or scan a UPI QR', icon: QrCode, online: true },
+  { value: 'card', title: 'Credit / Debit Card', body: 'Visa, Mastercard, RuPay, Amex', icon: CreditCard, online: true },
+  { value: 'other', title: 'Digital Payment', body: 'Wallets, net banking & more via Razorpay', icon: Wallet, online: true },
+  { value: 'cod', title: 'Cash on Delivery', body: 'Pay in cash when your order arrives', icon: Banknote, online: false },
 ];
 
 export function PaymentOptions({
@@ -22,40 +30,38 @@ export function PaymentOptions({
   disabled?: boolean;
 }) {
   return (
-    <fieldset className="space-y-3" disabled={disabled}>
-      <legend className="mb-3 text-lg font-semibold">Payment method</legend>
-      {OPTIONS.map((o) => {
-        const unavailable = o.online && !onlineAvailable;
-        const selected = value === o.value;
+    <fieldset className="space-y-2.5" disabled={disabled}>
+      <legend className="mb-3 font-semibold">Payment Method</legend>
+      {OPTIONS.map(({ value: v, title, body, icon: Icon, online }) => {
+        const unavailable = online && !onlineAvailable;
+        const selected = value === v;
         return (
           <label
-            key={o.value}
+            key={v}
             className={cx(
-              'flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors',
-              selected ? 'border-slate-900 bg-slate-50 ring-1 ring-slate-900' : 'border-slate-200 hover:border-slate-300',
+              'flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors',
+              selected ? 'border-blue-600 bg-blue-50/60 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300',
               unavailable && 'cursor-not-allowed opacity-50',
             )}
           >
             <input
               type="radio"
               name="paymentMethod"
-              value={o.value}
+              value={v}
               checked={selected}
               disabled={unavailable}
-              onChange={() => onChange(o.value)}
-              className="mt-1 size-4 accent-slate-900"
+              onChange={() => onChange(v)}
+              className="size-4 shrink-0 accent-blue-600"
             />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-slate-900">{o.title}</span>
-              <span className="block text-sm text-slate-500">{o.body}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-slate-900">{title}</span>
+              <span className="block truncate text-xs text-slate-500">{body}</span>
             </span>
+            <Icon className={cx('size-5 shrink-0', selected ? 'text-blue-600' : 'text-slate-400')} />
           </label>
         );
       })}
       {!onlineAvailable && <p className="text-xs text-slate-500">Online payments are currently unavailable. Cash on delivery is still open.</p>}
-      {onlineAvailable && value !== 'cod' && (
-        <p className="text-xs text-slate-500">You will pay securely on Razorpay. Your order is confirmed as soon as the payment is verified.</p>
-      )}
     </fieldset>
   );
 }

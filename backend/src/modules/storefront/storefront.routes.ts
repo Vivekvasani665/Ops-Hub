@@ -120,27 +120,64 @@ interface CatalogProduct {
   sku: string;
   category: string;
   price: number;
+  imageUrl: string | null;
+  description: string | null;
   available: number;
   inStock: boolean;
 }
 
-async function withStock(orgId: Types.ObjectId, products: { _id: Types.ObjectId; name: string; sku: string; category: string; price: number }[]): Promise<CatalogProduct[]> {
+type CatalogSource = {
+  _id: Types.ObjectId;
+  name: string;
+  sku: string;
+  category: string;
+  price: number;
+  imageUrl?: string | null;
+  description?: string | null;
+};
+
+async function withStock(orgId: Types.ObjectId, products: CatalogSource[]): Promise<CatalogProduct[]> {
   const inventory = await Inventory.find({ organizationId: orgId, productId: { $in: products.map((p) => p._id) } }).lean();
   const available = new Map(inventory.map((i) => [String(i.productId), i.available]));
   return products.map((p) => {
     const qty = available.get(String(p._id)) ?? 0;
-    return { id: String(p._id), name: p.name, sku: p.sku, category: p.category, price: p.price, available: qty, inStock: qty > 0 };
+    return {
+      id: String(p._id),
+      name: p.name,
+      sku: p.sku,
+      category: p.category,
+      price: p.price,
+      imageUrl: p.imageUrl ?? null,
+      description: p.description ?? null,
+      available: qty,
+      inStock: qty > 0,
+    };
   });
+}
+
+const SORTS = {
+  name: { nameLower: 1, _id: 1 },
+  price_asc: { price: 1, _id: 1 },
+  price_desc: { price: -1, _id: 1 },
+  newest: { createdAt: -1, _id: -1 },
+} as const;
+
+/** Prices in the query are rupees (what the shopper types); the catalog stores paise. */
+function rupeesToPaise(value: string | undefined) {
+  if (value === undefined) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : undefined;
 }
 
 storefrontRouter.get('/products', async (req, res) => {
   const { page, limit, skip } = pagination(req, { limit: 24, max: 60 });
   const filter: FilterQuery<ProductDoc> = { organizationId: req.tenantId, isActive: true };
+  const idSets: Types.ObjectId[][] = [];
 
   const ids = queryString(req, 'ids');
   if (ids) {
     const valid = ids.split(',').slice(0, 60).filter((id) => Types.ObjectId.isValid(id));
-    filter._id = { $in: valid.map((id) => new Types.ObjectId(id)) };
+    idSets.push(valid.map((id) => new Types.ObjectId(id)));
   }
   const search = queryString(req, 'search')?.slice(0, 100);
   if (search) {
@@ -149,11 +186,35 @@ storefrontRouter.get('/products', async (req, res) => {
       { sku: new RegExp(`^${escapeRegex(search.toUpperCase())}`) },
     ];
   }
-  const category = queryString(req, 'category');
-  if (category) filter.category = category.slice(0, 60);
+  // One or several categories, comma-separated.
+  const categories = queryString(req, 'category')
+    ?.split(',')
+    .map((c) => c.trim().slice(0, 60))
+    .filter(Boolean)
+    .slice(0, 20);
+  if (categories?.length) filter.category = { $in: categories };
+
+  const minPrice = rupeesToPaise(queryString(req, 'minPrice'));
+  const maxPrice = rupeesToPaise(queryString(req, 'maxPrice'));
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    filter.price = { ...(minPrice !== undefined && { $gte: minPrice }), ...(maxPrice !== undefined && { $lte: maxPrice }) };
+  }
+
+  if (queryString(req, 'inStock') === 'true') {
+    const stocked = await Inventory.find({ organizationId: req.tenantId, available: { $gt: 0 } }, { productId: 1 }).lean();
+    idSets.push(stocked.map((i) => i.productId as Types.ObjectId));
+  }
+  if (idSets.length) {
+    const [first, ...rest] = idSets.map((set) => set.map(String));
+    const keep = first!.filter((id) => rest.every((set) => set.includes(id)));
+    filter._id = { $in: keep.map((id) => new Types.ObjectId(id)) };
+  }
+
+  const sortKey = queryString(req, 'sort') as keyof typeof SORTS | undefined;
+  const sort = SORTS[sortKey && sortKey in SORTS ? sortKey : 'name'];
 
   const [products, total] = await Promise.all([
-    Product.find(filter).sort({ nameLower: 1 }).skip(skip).limit(limit).lean(),
+    Product.find(filter).sort(sort).skip(skip).limit(limit).lean(),
     Product.countDocuments(filter),
   ]);
   res.json({ data: await withStock(req.tenantId!, products), meta: pageMeta(page, limit, total) });

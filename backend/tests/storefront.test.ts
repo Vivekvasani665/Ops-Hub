@@ -102,4 +102,22 @@ describe('customer storefront', () => {
     await agent.post('/api/storefront/auth/logout');
     expect((await agent.get('/api/storefront/auth/me')).status).toBe(401);
   });
+
+  it('filters the catalog by categories, price range and stock, and sorts by price', async () => {
+    await createTenant('acme', {
+      products: [
+        { sku: 'CHEAP', stock: 3, price: 50_000 },
+        { sku: 'MID', stock: 0, price: 150_000 },
+        { sku: 'DEAR', stock: 2, price: 900_000 },
+      ],
+    });
+    const get = (q: string) => request(testServer()).get(`/api/storefront/products?${q}`).then((r) => r.body.data.map((p: { sku: string }) => p.sku));
+
+    expect(await get('sort=price_desc')).toEqual(['DEAR', 'MID', 'CHEAP']);
+    expect(await get('minPrice=1000&maxPrice=5000&sort=price_asc')).toEqual(['MID']); // rupees
+    expect(await get('inStock=true&sort=price_asc')).toEqual(['CHEAP', 'DEAR']);
+    expect(await get('inStock=true&maxPrice=1000')).toEqual(['CHEAP']);
+    expect(await get('category=Test,Other&sort=price_asc')).toEqual(['CHEAP', 'MID', 'DEAR']);
+    expect(await get('category=Other')).toEqual([]);
+  });
 });

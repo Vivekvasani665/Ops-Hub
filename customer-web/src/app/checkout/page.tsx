@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Lock, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/auth';
 import { useCart } from '@/context/cart';
 import { RequireAuth } from '@/components/RequireAuth';
@@ -10,10 +11,20 @@ import { api, ApiError } from '@/lib/api';
 import { money, newIdempotencyKey } from '@/lib/format';
 import { payWithRazorpay, type PaymentStage } from '@/lib/razorpay';
 import type { ShippingAddress } from '@/lib/types';
-import { PaymentOptions, type PaymentChoice } from '@/components/PaymentOptions';
-import { Alert, Button, EmptyState, Field, Input, PageLoader, Textarea } from '@/components/ui';
+import { CheckoutSteps } from '@/components/CheckoutSteps';
+import { PaymentMarks } from '@/components/Footer';
+import { PaymentOptions, PAYMENT_CHOICE_LABEL, type PaymentChoice } from '@/components/PaymentOptions';
+import { Alert, Button, EmptyState, Field, Input, PageLoader, ProductImage, Textarea } from '@/components/ui';
 
 type Errors = Partial<Record<keyof ShippingAddress, string>>;
+
+const STATES = [
+  'Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh',
+  'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir',
+  'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya',
+  'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+  'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+];
 
 // Mirrors backend/src/modules/storefront/storefront.schemas.ts; the backend remains the authority.
 function validate(s: ShippingAddress): Errors {
@@ -23,9 +34,16 @@ function validate(s: ShippingAddress): Errors {
   if (s.line1.trim().length < 3) e.line1 = 'Address is required';
   if (s.city.trim().length < 2) e.city = 'City is required';
   if (s.state.trim().length < 2) e.state = 'State is required';
-  if (!/^[A-Za-z0-9\s-]{3,12}$/.test(s.postalCode.trim())) e.postalCode = 'Valid postal code required';
+  if (!/^[A-Za-z0-9\s-]{3,12}$/.test(s.postalCode.trim())) e.postalCode = 'Valid PIN code required';
   return e;
 }
+
+const STAGE_LABEL: Record<PaymentStage | 'placing', string> = {
+  placing: 'Placing your order…',
+  starting: 'Loading payment…',
+  awaiting: 'Complete the payment in the Razorpay window…',
+  verifying: 'Verifying your payment…',
+};
 
 function CheckoutForm() {
   const { customer } = useAuth();
@@ -61,8 +79,8 @@ function CheckoutForm() {
 
   const online = paymentChoice !== 'cod';
 
-  // One key per distinct cart: a double-click or network retry replays the same order instead of
-  // creating a second one, while changing the cart starts a fresh attempt.
+  // One key per distinct attempt: a double-click or network retry replays the same order instead of
+  // creating a second one, while changing the cart or payment method starts a fresh attempt.
   const cartSignature = useMemo(() => lines.map((l) => `${l.productId}:${l.quantity}`).join('|'), [lines]);
   const idempotencyKey = useRef('');
   useEffect(() => {
@@ -74,8 +92,9 @@ function CheckoutForm() {
     return (
       <EmptyState
         title="Nothing to check out"
+        body="Your cart is empty."
         action={
-          <Link href="/" className="inline-block rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">
+          <Link href="/products" className="inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
             Browse products
           </Link>
         }
@@ -83,15 +102,17 @@ function CheckoutForm() {
     );
   }
 
-  const set = (key: keyof ShippingAddress) => (e: { target: { value: string } }) =>
-    setShipping((s) => ({ ...s, [key]: e.target.value }));
+  const set = (key: keyof ShippingAddress) => (e: { target: { value: string } }) => setShipping((s) => ({ ...s, [key]: e.target.value }));
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitError(null);
     const found = validate(shipping);
     setErrors(found);
-    if (Object.keys(found).length) return;
+    if (Object.keys(found).length) {
+      document.getElementById(Object.keys(found)[0]!)?.focus();
+      return;
+    }
 
     setSubmitting(true);
     setStage('placing');
@@ -109,14 +130,16 @@ function CheckoutForm() {
       placed.current = true;
       clear();
       if (!online) {
-        router.replace(`/orders/${order.id}?placed=1`);
+        router.replace(`/orders/${order.id}/success`);
         return;
       }
-      // The order exists now (awaiting payment); every outcome lands on its page, which offers retry.
+      // The order exists now (awaiting payment); a failed or cancelled payment lands on its page, which offers retry.
       const outcome = await payWithRazorpay(order.id, paymentChoice as Exclude<PaymentChoice, 'cod'>, setStage);
-      router.replace(outcome.kind === 'paid' ? `/orders/${order.id}?placed=1` : `/orders/${order.id}?payment=${outcome.kind}`);
+      router.replace(outcome.kind === 'paid' ? `/orders/${order.id}/success` : `/orders/${order.id}?payment=${outcome.kind}`);
     } catch (err) {
       if (err instanceof ApiError) {
+        // The server answered, so nothing was created: a corrected retry needs a fresh key.
+        idempotencyKey.current = newIdempotencyKey();
         if (err.code === 'INSUFFICIENT_STOCK') {
           const d = err.details as { sku?: string; available?: number } | undefined;
           setSubmitError(
@@ -142,86 +165,110 @@ function CheckoutForm() {
     }
   }
 
-  const busyLabel =
-    stage === 'placing'
-      ? 'Placing order…'
-      : stage === 'starting'
-        ? 'Loading payment…'
-        : stage === 'awaiting'
-          ? 'Complete payment in the Razorpay window…'
-          : stage === 'verifying'
-            ? 'Verifying payment…'
-            : null;
-
   return (
-    <form onSubmit={onSubmit} noValidate className="grid gap-8 lg:grid-cols-[1fr_360px]">
-      <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="text-lg font-semibold">Shipping address</h2>
+    <form onSubmit={onSubmit} noValidate className="grid gap-6 lg:grid-cols-[1fr_400px]">
+      <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+        <h2 className="text-lg font-semibold">Shipping Information</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Full name" htmlFor="fullName" error={errors.fullName}>
-            <Input id="fullName" autoComplete="name" value={shipping.fullName} onChange={set('fullName')} invalid={!!errors.fullName} />
+            <Input id="fullName" autoComplete="name" placeholder="John Doe" value={shipping.fullName} onChange={set('fullName')} invalid={!!errors.fullName} />
           </Field>
-          <Field label="Phone" htmlFor="phone" error={errors.phone}>
-            <Input id="phone" type="tel" autoComplete="tel" value={shipping.phone} onChange={set('phone')} invalid={!!errors.phone} />
+          <Field label="Email" htmlFor="email">
+            <Input id="email" type="email" value={customer?.email ?? ''} readOnly className="bg-slate-50 text-slate-500" />
           </Field>
         </div>
-        <Field label="Address line 1" htmlFor="line1" error={errors.line1}>
-          <Input id="line1" autoComplete="address-line1" value={shipping.line1} onChange={set('line1')} invalid={!!errors.line1} />
+        <Field label="Phone" htmlFor="phone" error={errors.phone}>
+          <Input id="phone" type="tel" autoComplete="tel" placeholder="+91 98765 43210" value={shipping.phone} onChange={set('phone')} invalid={!!errors.phone} />
         </Field>
-        <Field label="Address line 2 (optional)" htmlFor="line2">
+        <Field label="Address" htmlFor="line1" error={errors.line1}>
+          <Input id="line1" autoComplete="address-line1" placeholder="House no., street, area" value={shipping.line1} onChange={set('line1')} invalid={!!errors.line1} />
+        </Field>
+        <Field label="Apartment, landmark (optional)" htmlFor="line2">
           <Input id="line2" autoComplete="address-line2" value={shipping.line2} onChange={set('line2')} />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="City" htmlFor="city" error={errors.city}>
-            <Input id="city" autoComplete="address-level2" value={shipping.city} onChange={set('city')} invalid={!!errors.city} />
+            <Input id="city" autoComplete="address-level2" placeholder="Ahmedabad" value={shipping.city} onChange={set('city')} invalid={!!errors.city} />
           </Field>
           <Field label="State" htmlFor="state" error={errors.state}>
-            <Input id="state" autoComplete="address-level1" value={shipping.state} onChange={set('state')} invalid={!!errors.state} />
+            <select
+              id="state"
+              autoComplete="address-level1"
+              value={shipping.state}
+              onChange={set('state')}
+              aria-invalid={!!errors.state || undefined}
+              className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm focus:ring-2 focus:outline-none ${errors.state ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'}`}
+            >
+              <option value="">Select state</option>
+              {STATES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Country" htmlFor="country">
+            <Input id="country" value="India" readOnly className="bg-slate-50 text-slate-500" />
           </Field>
           <Field label="PIN code" htmlFor="postalCode" error={errors.postalCode}>
-            <Input id="postalCode" autoComplete="postal-code" value={shipping.postalCode} onChange={set('postalCode')} invalid={!!errors.postalCode} />
+            <Input id="postalCode" autoComplete="postal-code" inputMode="numeric" placeholder="380001" value={shipping.postalCode} onChange={set('postalCode')} invalid={!!errors.postalCode} />
           </Field>
         </div>
         <Field label="Order note (optional)" htmlFor="notes">
-          <Textarea id="notes" rows={3} maxLength={200} placeholder="Delivery instructions, landmark…" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <Textarea id="notes" rows={2} maxLength={200} placeholder="Delivery instructions…" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-start-1">
-        <PaymentOptions value={paymentChoice} onChange={setPaymentChoice} onlineAvailable={onlineAvailable} disabled={submitting} />
-      </section>
-
-      <aside className="h-fit space-y-4 rounded-2xl border border-slate-200 bg-white p-5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-        <h2 className="font-semibold">Order summary</h2>
-        <ul className="space-y-2 text-sm">
+      <aside className="h-fit space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 lg:sticky lg:top-24">
+        <h2 className="text-lg font-semibold">Order Summary</h2>
+        <ul className="max-h-64 space-y-3 overflow-y-auto pr-1">
           {lines.map((l) => (
-            <li key={l.productId} className="flex justify-between gap-3">
-              <span className="min-w-0 truncate">
-                {l.name} <span className="text-slate-400">× {l.quantity}</span>
-              </span>
-              <span className="tabular-nums">{money(l.price * l.quantity)}</span>
+            <li key={l.productId} className="flex items-center gap-3 text-sm">
+              <div className="shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                <ProductImage src={l.imageUrl} name={l.name} category={l.category ?? ''} width={120} className="size-12" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{l.name}</p>
+                <p className="text-xs text-slate-500">
+                  {money(l.price)} × {l.quantity}
+                </p>
+              </div>
+              <span className="font-semibold tabular-nums">{money(l.price * l.quantity)}</span>
             </li>
           ))}
         </ul>
-        <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-semibold">
-          <span>Total</span>
-          <span className="tabular-nums">{money(subtotal)}</span>
-        </div>
-        <p className="text-xs text-slate-500">Final prices are confirmed by the store when the order is placed.</p>
-        <div className="flex justify-between text-sm text-slate-600">
-          <span>Payment</span>
-          <span className="font-medium text-slate-900">
-            {{ upi: 'UPI', card: 'Card', other: 'Digital payment', cod: 'Cash on delivery' }[paymentChoice]}
-          </span>
-        </div>
+        <dl className="space-y-2 border-t border-slate-100 pt-4 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-slate-500">Subtotal</dt>
+            <dd className="tabular-nums">{money(subtotal)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-slate-500">Shipping</dt>
+            <dd className="font-medium text-emerald-600">Free</dd>
+          </div>
+          <div className="flex justify-between border-t border-slate-100 pt-3 text-base font-bold">
+            <dt>Total</dt>
+            <dd className="tabular-nums">{money(subtotal)}</dd>
+          </div>
+        </dl>
+
+        <PaymentOptions value={paymentChoice} onChange={setPaymentChoice} onlineAvailable={onlineAvailable} disabled={submitting} />
+
         {submitError && <Alert>{submitError}</Alert>}
-        {busyLabel && <Alert tone="info">{busyLabel}</Alert>}
-        <Button type="submit" className="w-full" loading={submitting}>
-          {online ? `Pay ${money(subtotal)}` : `Place order – ${money(subtotal)}`}
+        {stage && <Alert tone="info">{STAGE_LABEL[stage]}</Alert>}
+
+        <Button type="submit" className="w-full py-3 text-base" loading={submitting}>
+          {!submitting && <Lock className="size-4" />}
+          {online ? `Pay ${money(subtotal)}` : `Place Order – ${money(subtotal)}`}
         </Button>
-        <Link href="/cart" className="block text-center text-sm text-slate-600 hover:text-slate-900">
-          Back to cart
-        </Link>
+        <p className="-mt-2 text-center text-xs text-slate-500">
+          Paying with <span className="font-medium text-slate-700">{PAYMENT_CHOICE_LABEL[paymentChoice]}</span>. Final amount is confirmed by the store.
+        </p>
+        <div className="space-y-2 border-t border-slate-100 pt-4">
+          <p className="flex items-center gap-2 text-xs text-slate-500">
+            <ShieldCheck className="size-4 shrink-0 text-emerald-600" />
+            Your payment information is safe and secure with Razorpay.
+          </p>
+          <PaymentMarks />
+        </div>
       </aside>
     </form>
   );
@@ -230,7 +277,10 @@ function CheckoutForm() {
 export default function CheckoutPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Checkout</h1>
+        <CheckoutSteps current={1} />
+      </div>
       <RequireAuth>
         <CheckoutForm />
       </RequireAuth>

@@ -10,6 +10,9 @@ export interface CartLine {
   sku: string;
   price: number;
   quantity: number;
+  /** display only; may be missing on carts saved before images existed */
+  imageUrl?: string | null;
+  category?: string;
 }
 
 interface CartState {
@@ -74,7 +77,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
       if (prev.length >= MAX_LINES) return prev;
-      return [...prev, { productId: product.id, name: product.name, sku: product.sku, price: product.price, quantity }];
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          name: product.name,
+          sku: product.sku,
+          price: product.price,
+          quantity,
+          imageUrl: product.imageUrl,
+          category: product.category,
+        },
+      ];
     });
   }, []);
 
@@ -95,7 +109,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setLines((prev) => {
       const next = prev.map((l) => {
         const p = byId.get(l.productId);
-        return p ? { ...l, name: p.name, sku: p.sku, price: p.price } : l;
+        return p ? { ...l, name: p.name, sku: p.sku, price: p.price, imageUrl: p.imageUrl, category: p.category } : l;
       });
       return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
     });

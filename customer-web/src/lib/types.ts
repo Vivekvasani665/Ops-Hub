@@ -50,6 +50,8 @@ export interface Product {
   category: string;
   /** minor units (paise) */
   price: number;
+  imageUrl: string | null;
+  description: string | null;
   available: number;
   inStock: boolean;
 }

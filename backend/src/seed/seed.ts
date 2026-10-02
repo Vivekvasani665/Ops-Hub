@@ -60,6 +60,38 @@ const GLOBEX_PRODUCTS: SeedProduct[] = [
   { name: 'Webcam HD', sku: 'CAM-HD', category: 'Accessories', price: 4_499, stock: 80, reorderLevel: 10 },
 ];
 
+const unsplash = (id: string) => `https://images.unsplash.com/photo-${id}?w=900&q=80&auto=format&fit=crop`;
+
+/** Storefront photos (Unsplash, free to use) and copy for the seed catalog, keyed by SKU. */
+const PRODUCT_MEDIA: Record<string, { imageUrl?: string; description: string }> = {
+  'IP15-BLK': { imageUrl: unsplash('1695048133142-1a20484d2569'), description: 'Dynamic Island, a 48MP main camera and USB-C in a durable colour-infused glass and aluminium design.' },
+  'MBP-14': { imageUrl: unsplash('1517336714731-489689fd1ca8'), description: 'A 14-inch Liquid Retina XDR display, pro performance and all-day battery life for demanding work.' },
+  AP2: { imageUrl: unsplash('1600294037681-c80b4cb5b434'), description: 'Active noise cancellation, Adaptive Transparency and personalised spatial audio in a pocketable case.' },
+  'IPAD-AIR': { imageUrl: unsplash('1544244015-0df4b3ffc6b0'), description: 'A thin, light tablet with a stunning Liquid Retina display, ready for notes, drawing and entertainment.' },
+  'AW-S9': { imageUrl: unsplash('1546868871-7041f2a55e12'), description: 'A brighter always-on display, health and fitness tracking, and safety features that keep you connected.' },
+  SGS24: { imageUrl: unsplash('1610945415295-d9bbf067e59c'), description: 'A flagship Android phone with a vivid AMOLED display, versatile cameras and Galaxy AI features.' },
+  'SONY-XM5': { imageUrl: unsplash('1618366712010-f4ae9c647dcb'), description: 'Industry-leading noise cancellation, exceptional call quality and up to 30 hours of battery life.' },
+  'DELL-XPS13': { imageUrl: unsplash('1593642632823-8f785ba67e45'), description: 'A compact 13-inch ultrabook with an edge-to-edge display and a precision-machined aluminium build.' },
+  'LOGI-MX3S': { imageUrl: unsplash('1527864550417-7fd91fc51a46'), description: 'A quiet-click performance mouse with an 8K DPI sensor and MagSpeed scrolling for precise work.' },
+  'KINDLE-PW': { description: 'A glare-free 6.8-inch display with adjustable warm light, waterproofing and weeks of battery life.' },
+  'MK-USB': { imageUrl: unsplash('1587829741301-dc798b83add3'), description: 'A slim, rechargeable wireless keyboard with a stable scissor mechanism and low key travel.' },
+  'USBC-35W': { imageUrl: unsplash('1583863788434-e58a36330cf0'), description: 'A compact 35W USB-C power adapter for fast charging phones, tablets and ultrabooks.' },
+  'CHAIR-PRO': { imageUrl: unsplash('1580480055273-228ff5388ef8'), description: 'An upholstered swivel chair with a supportive shell seat for comfortable long working days.' },
+  'MON-27-4K': { imageUrl: unsplash('1527443224154-c4a3942d3acf'), description: 'A sharp 27-inch 4K display with accurate colour for creative work and crisp text.' },
+};
+
+/** Gives already-seeded databases the storefront media without reseeding; never overwrites edited values. */
+export async function backfillProductMedia() {
+  const ops = Object.entries(PRODUCT_MEDIA).flatMap(([sku, media]) => [
+    ...(media.imageUrl
+      ? [{ updateMany: { filter: { sku, imageUrl: { $in: [null, undefined] } }, update: { $set: { imageUrl: media.imageUrl } } } }]
+      : []),
+    { updateMany: { filter: { sku, description: { $in: [null, undefined] } }, update: { $set: { description: media.description } } } },
+  ]);
+  const res = await Product.bulkWrite(ops);
+  return res.modifiedCount;
+}
+
 const CUSTOMERS = [
   'Rahul Shah', 'John Smith', 'Acme Corp', 'Tech Store', 'Global Retail', 'Priya Patel', 'Ananya Iyer',
   'Arjun Mehta', 'Neha Gupta', 'Vikram Singh', 'Sara Khan', 'David Lee', 'Emma Wilson', 'Rohan Desai',
@@ -218,6 +250,8 @@ async function seedTenant(opts: {
       sku: p.sku,
       category: p.category,
       price: p.price * 100,
+      imageUrl: PRODUCT_MEDIA[p.sku]?.imageUrl ?? null,
+      description: PRODUCT_MEDIA[p.sku]?.description ?? null,
     })),
   );
 
@@ -302,6 +336,8 @@ export async function resetDatabase() {
 export async function seedDatabase({ orders = 800, reset = false }: { orders?: number; reset?: boolean } = {}) {
   if (reset) await resetDatabase();
   else if (await Organization.exists({})) {
+    const media = await backfillProductMedia();
+    if (media) logger.info(`Added storefront media to ${media} seed product field(s)`);
     logger.info('Database already seeded; skipping (use --reset to reseed)');
     return false;
   }

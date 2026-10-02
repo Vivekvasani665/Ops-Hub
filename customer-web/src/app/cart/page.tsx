@@ -2,15 +2,18 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { ArrowRight, Minus, Plus, ShieldCheck, ShoppingCart, Trash2 } from 'lucide-react';
 import { useCart } from '@/context/cart';
 import { useAuth } from '@/context/auth';
 import { api } from '@/lib/api';
 import { money } from '@/lib/format';
 import type { Product } from '@/lib/types';
-import { Alert, EmptyState, PageLoader, ProductThumb } from '@/components/ui';
+import { CheckoutSteps } from '@/components/CheckoutSteps';
+import { PaymentMarks } from '@/components/Footer';
+import { Alert, EmptyState, PageLoader, ProductImage, cx } from '@/components/ui';
 
 export default function CartPage() {
-  const { lines, ready, subtotal, setQuantity, remove, sync } = useCart();
+  const { lines, ready, subtotal, count, setQuantity, remove, sync } = useCart();
   const { customer } = useAuth();
   const [live, setLive] = useState<Map<string, Product> | null>(null);
 
@@ -35,8 +38,8 @@ export default function CartPage() {
         title="Your cart is empty"
         body="Browse the shop and add something you like."
         action={
-          <Link href="/" className="inline-block rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">
-            Start shopping
+          <Link href="/products" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            <ShoppingCart className="size-4" /> Start shopping
           </Link>
         }
       />
@@ -49,53 +52,57 @@ export default function CartPage() {
         return !p || !p.inStock || l.quantity > p.available;
       })
     : [];
+  const blocked = problems.length > 0 || !live;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Your cart</h1>
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">
+          Shopping Cart <span className="text-base font-normal text-slate-400">({count} item{count === 1 ? '' : 's'})</span>
+        </h1>
+        <CheckoutSteps current={0} />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
           {lines.map((l) => {
             const p = live?.get(l.productId);
             const max = p ? Math.max(p.available, l.quantity) : l.quantity;
             const issue = live && (!p ? 'No longer available' : !p.inStock ? 'Out of stock' : l.quantity > p.available ? `Only ${p.available} available` : null);
             return (
-              <li key={l.productId} className="flex gap-4 p-4">
-                <ProductThumb name={l.name} category={p?.category ?? l.sku} className="size-20 shrink-0 rounded-xl text-lg" />
-                <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <li key={l.productId} className="flex gap-4 p-4 sm:p-5">
+                <Link href={`/products/${l.productId}`} className="shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                  <ProductImage src={p?.imageUrl ?? l.imageUrl} name={l.name} category={p?.category ?? l.category ?? ''} width={200} className="size-20 sm:size-24" />
+                </Link>
+                <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 sm:flex-row sm:items-center">
                   <div className="min-w-0">
-                    <Link href={`/products/${l.productId}`} className="font-medium hover:underline">
+                    <Link href={`/products/${l.productId}`} className="line-clamp-2 font-semibold hover:text-blue-600">
                       {l.name}
                     </Link>
                     <p className="text-sm text-slate-500">{money(l.price)} each</p>
-                    {issue && <p className="text-sm text-rose-600">{issue}</p>}
+                    {issue && <p className="mt-1 text-sm font-medium text-rose-600">{issue}</p>}
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between gap-4 sm:justify-end">
                     <div className="flex items-center rounded-lg ring-1 ring-slate-300">
-                      <button
-                        type="button"
-                        aria-label={`Decrease ${l.name}`}
-                        className="px-3 py-1.5 text-slate-600 hover:text-slate-900"
-                        onClick={() => setQuantity(l.productId, l.quantity - 1)}
-                      >
-                        −
+                      <button type="button" aria-label={`Decrease ${l.name}`} className="p-2 text-slate-600 hover:text-slate-900" onClick={() => setQuantity(l.productId, l.quantity - 1)}>
+                        <Minus className="size-3.5" />
                       </button>
-                      <span className="w-8 text-center text-sm tabular-nums" aria-live="polite">
+                      <span className="w-8 text-center text-sm font-semibold tabular-nums" aria-live="polite">
                         {l.quantity}
                       </span>
                       <button
                         type="button"
                         aria-label={`Increase ${l.name}`}
-                        className="px-3 py-1.5 text-slate-600 hover:text-slate-900 disabled:text-slate-300"
+                        className="p-2 text-slate-600 hover:text-slate-900 disabled:text-slate-300"
                         disabled={l.quantity >= max}
                         onClick={() => setQuantity(l.productId, l.quantity + 1)}
                       >
-                        +
+                        <Plus className="size-3.5" />
                       </button>
                     </div>
-                    <p className="w-24 text-right font-medium tabular-nums">{money(l.price * l.quantity)}</p>
-                    <button type="button" onClick={() => remove(l.productId)} className="text-sm text-slate-500 hover:text-rose-600">
-                      Remove
+                    <p className="w-24 text-right font-bold tabular-nums">{money(l.price * l.quantity)}</p>
+                    <button type="button" onClick={() => remove(l.productId)} aria-label={`Remove ${l.name}`} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                      <Trash2 className="size-4" />
                     </button>
                   </div>
                 </div>
@@ -104,18 +111,18 @@ export default function CartPage() {
           })}
         </ul>
 
-        <aside className="h-fit space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="font-semibold">Order summary</h2>
-          <dl className="space-y-2 text-sm">
+        <aside className="h-fit space-y-4 rounded-2xl border border-slate-200 bg-white p-5 lg:sticky lg:top-24">
+          <h2 className="text-lg font-semibold">Order Summary</h2>
+          <dl className="space-y-2.5 text-sm">
             <div className="flex justify-between">
               <dt className="text-slate-500">Subtotal</dt>
               <dd className="tabular-nums">{money(subtotal)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-slate-500">Shipping</dt>
-              <dd>Free</dd>
+              <dd className="font-medium text-emerald-600">Free</dd>
             </div>
-            <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold">
+            <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold">
               <dt>Total</dt>
               <dd className="tabular-nums">{money(subtotal)}</dd>
             </div>
@@ -123,16 +130,23 @@ export default function CartPage() {
           {problems.length > 0 && <Alert>Fix the highlighted items before checking out.</Alert>}
           <Link
             href={customer ? '/checkout' : '/login?next=/checkout'}
-            aria-disabled={problems.length > 0 || !live}
-            className={`block rounded-lg px-4 py-2.5 text-center text-sm font-medium text-white ${
-              problems.length > 0 || !live ? 'pointer-events-none bg-slate-400' : 'bg-slate-900 hover:bg-slate-800'
-            }`}
+            aria-disabled={blocked}
+            className={cx(
+              'flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white',
+              blocked ? 'pointer-events-none bg-blue-300' : 'bg-blue-600 hover:bg-blue-700',
+            )}
           >
-            {customer ? 'Proceed to checkout' : 'Sign in to checkout'}
+            {customer ? 'Proceed to Checkout' : 'Sign in to Checkout'} <ArrowRight className="size-4" />
           </Link>
-          <Link href="/" className="block text-center text-sm text-slate-600 hover:text-slate-900">
+          <Link href="/products" className="block text-center text-sm font-medium text-slate-600 hover:text-slate-900">
             Continue shopping
           </Link>
+          <div className="space-y-2 border-t border-slate-100 pt-4">
+            <p className="flex items-center gap-2 text-xs text-slate-500">
+              <ShieldCheck className="size-4 text-emerald-600" /> Secure checkout powered by Razorpay
+            </p>
+            <PaymentMarks />
+          </div>
         </aside>
       </div>
     </div>

@@ -2,17 +2,21 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { ChevronRight, ShoppingBag } from 'lucide-react';
 import { api } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
+import { useProductMedia } from '@/lib/useProductMedia';
 import type { Order, PageMeta } from '@/lib/types';
+import { AccountLayout } from '@/components/AccountLayout';
 import { RequireAuth } from '@/components/RequireAuth';
-import { Alert, Button, EmptyState, PageLoader, StatusBadge } from '@/components/ui';
+import { Alert, Button, EmptyState, PageLoader, ProductImage, StatusBadge } from '@/components/ui';
 
 function OrderList() {
   const [page, setPage] = useState(1);
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const media = useProductMedia(orders?.map((o) => o.items[0]?.productId ?? '').filter(Boolean) ?? []);
 
   useEffect(() => {
     setOrders(null);
@@ -33,8 +37,8 @@ function OrderList() {
         title="No orders yet"
         body="When you place an order it will show up here."
         action={
-          <Link href="/" className="inline-block rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">
-            Start shopping
+          <Link href="/products" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            <ShoppingBag className="size-4" /> Start shopping
           </Link>
         }
       />
@@ -43,26 +47,49 @@ function OrderList() {
 
   return (
     <div className="space-y-4">
-      <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        {orders.map((o) => (
-          <li key={o.id}>
-            <Link href={`/orders/${o.id}`} className="flex flex-col gap-2 p-4 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-medium">Order #{o.orderNumber}</p>
-                <p className="text-sm text-slate-500">
-                  {dateTime(o.createdAt)} · {o.itemCount} item{o.itemCount === 1 ? '' : 's'}
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                {o.payment && o.payment.payableForSeconds > 0 && (
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">Awaiting payment</span>
-                )}
+      <ul className="space-y-3">
+        {orders.map((o) => {
+          const first = o.items[0];
+          const m = first ? media.get(first.productId) : undefined;
+          const awaitingPayment = !!o.payment && o.payment.payableForSeconds > 0;
+          return (
+            <li key={o.id}>
+              <Link
+                href={`/orders/${o.id}`}
+                className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md"
+              >
+                <div className="shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                  <ProductImage src={m?.imageUrl} name={first?.name ?? 'Order'} category={m?.category ?? ''} width={160} className="size-16" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">Order #{o.orderNumber}</p>
+                  <p className="truncate text-sm text-slate-500">
+                    {first?.name}
+                    {o.items.length > 1 && ` + ${o.items.length - 1} more`}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {o.itemCount} item{o.itemCount === 1 ? '' : 's'} · <span className="font-semibold text-slate-900">{money(o.totalAmount)}</span>
+                  </p>
+                </div>
+                <div className="hidden flex-col items-end gap-1.5 sm:flex">
+                  <div className="flex items-center gap-2">
+                    {awaitingPayment && (
+                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">Awaiting payment</span>
+                    )}
+                    <StatusBadge status={o.status} />
+                  </div>
+                  <span className="text-xs text-slate-400">{dateTime(o.createdAt)}</span>
+                </div>
+                <span className="hidden rounded-lg px-3 py-2 text-sm font-medium text-blue-600 ring-1 ring-blue-200 md:block">View Details</span>
+                <ChevronRight className="size-5 shrink-0 text-slate-300 md:hidden" />
+              </Link>
+              <div className="mt-1 flex items-center gap-2 px-2 sm:hidden">
                 <StatusBadge status={o.status} />
-                <span className="w-28 text-right font-semibold tabular-nums">{money(o.totalAmount)}</span>
+                {awaitingPayment && <span className="text-xs font-medium text-amber-700">Awaiting payment</span>}
               </div>
-            </Link>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
       {meta && meta.totalPages > 1 && (
         <nav className="flex items-center justify-center gap-3" aria-label="Pagination">
@@ -83,11 +110,13 @@ function OrderList() {
 
 export default function OrdersPage() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">My orders</h1>
-      <RequireAuth>
-        <OrderList />
-      </RequireAuth>
-    </div>
+    <RequireAuth>
+      <AccountLayout>
+        <div className="space-y-5">
+          <h1 className="text-2xl font-bold tracking-tight">My Orders</h1>
+          <OrderList />
+        </div>
+      </AccountLayout>
+    </RequireAuth>
   );
 }

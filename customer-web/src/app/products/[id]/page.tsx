@@ -3,27 +3,40 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { ChevronRight, Minus, Plus, ShoppingCart, Zap } from 'lucide-react';
 import { useCart } from '@/context/cart';
 import { api, ApiError } from '@/lib/api';
 import { money } from '@/lib/format';
 import type { Product } from '@/lib/types';
-import { Alert, Button, EmptyState, PageLoader, ProductThumb } from '@/components/ui';
+import { FeatureStrip } from '@/app/Home';
+import { ProductCard, StockNote } from '@/components/ProductCard';
+import { Alert, Button, EmptyState, PageLoader, ProductImage, cx } from '@/components/ui';
+
+type Tab = 'specs' | 'related';
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { lines, add } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
+  const [related, setRelated] = useState<Product[]>([]);
   const [error, setError] = useState<ApiError | Error | null>(null);
   const [qty, setQty] = useState(1);
+  const [tab, setTab] = useState<Tab>('specs');
+  const [added, setAdded] = useState(false);
 
   useEffect(() => {
-    api.product(id).then(setProduct, setError);
+    setProduct(null);
+    setQty(1);
+    api.product(id).then((p) => {
+      setProduct(p);
+      api.products({ categories: [p.category], limit: 9 }).then((r) => setRelated(r.data.filter((x) => x.id !== p.id).slice(0, 4)), () => undefined);
+    }, setError);
   }, [id]);
 
   if (error) {
     return error instanceof ApiError && error.status === 404 ? (
-      <EmptyState title="Product not found" action={<Link href="/" className="text-sm font-medium underline">Back to shop</Link>} />
+      <EmptyState title="Product not found" action={<Link href="/products" className="text-sm font-medium text-blue-600 underline">Browse products</Link>} />
     ) : (
       <Alert>Could not load product: {error.message}</Alert>
     );
@@ -32,71 +45,146 @@ export default function ProductPage() {
 
   const inCart = lines.find((l) => l.productId === product.id)?.quantity ?? 0;
   const remaining = Math.max(0, product.available - inCart);
+  const amount = Math.min(qty, remaining);
+
+  const specs: [string, string][] = [
+    ['Category', product.category],
+    ['SKU', product.sku],
+    ['Availability', product.inStock ? `${product.available} in stock` : 'Out of stock'],
+    ['Shipping', 'Free delivery'],
+    ['Payment', 'UPI, cards, wallets, net banking or cash on delivery'],
+  ];
 
   return (
-    <div className="space-y-6">
-      <Link href="/" className="text-sm text-slate-500 hover:text-slate-900">
-        ← Back to shop
-      </Link>
-      <div className="grid gap-8 md:grid-cols-2">
-        <ProductThumb name={product.name} category={product.category} className="aspect-square rounded-2xl text-6xl" />
-        <div className="space-y-5">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-slate-400">{product.category}</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">{product.name}</h1>
-            <p className="mt-1 text-sm text-slate-500">SKU {product.sku}</p>
-          </div>
-          <p className="text-3xl font-semibold">{money(product.price)}</p>
-          <p className={product.inStock ? 'text-sm text-emerald-700' : 'text-sm text-rose-600'}>
-            {product.inStock ? `${product.available} in stock` : 'Currently out of stock'}
-          </p>
+    <div className="space-y-8">
+      <nav className="flex items-center gap-1 text-sm text-slate-500" aria-label="Breadcrumb">
+        <Link href="/" className="hover:text-slate-900">Home</Link>
+        <ChevronRight className="size-4" />
+        <Link href={`/products?category=${encodeURIComponent(product.category)}`} className="hover:text-slate-900">
+          {product.category}
+        </Link>
+        <ChevronRight className="size-4" />
+        <span className="truncate text-slate-900">{product.name}</span>
+      </nav>
+
+      <div className="grid gap-8 rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 md:grid-cols-2 lg:gap-12">
+        <div className="overflow-hidden rounded-2xl bg-slate-100">
+          <ProductImage src={product.imageUrl} name={product.name} category={product.category} width={1000} className="aspect-square w-full" />
+        </div>
+
+        <div className="flex flex-col">
+          <p className="text-sm font-medium tracking-wide text-blue-600 uppercase">{product.category}</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{product.name}</h1>
+          <p className="mt-1 text-sm text-slate-400">SKU {product.sku}</p>
+
+          <p className="mt-5 text-3xl font-bold">{money(product.price)}</p>
+          <p className="text-xs text-slate-500">Inclusive of all taxes · Free shipping</p>
+
+          <span
+            className={cx(
+              'mt-4 w-fit rounded-md px-2.5 py-1 text-xs font-semibold',
+              product.inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
+            )}
+          >
+            {product.inStock ? (product.available <= 5 ? `Only ${product.available} left` : 'In Stock') : 'Out of Stock'}
+          </span>
+
+          {product.description && <p className="mt-5 leading-relaxed text-slate-600">{product.description}</p>}
 
           {product.inStock && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <label htmlFor="qty" className="text-sm font-medium text-slate-700">
-                  Quantity
-                </label>
-                <select
-                  id="qty"
-                  value={qty}
-                  onChange={(e) => setQty(Number(e.target.value))}
-                  disabled={remaining === 0}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                >
-                  {Array.from({ length: Math.max(1, Math.min(10, remaining)) }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-                {inCart > 0 && <span className="text-sm text-slate-500">{inCart} already in cart</span>}
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-slate-700">Quantity</span>
+                <div className="flex items-center rounded-lg ring-1 ring-slate-300">
+                  <button type="button" aria-label="Decrease quantity" className="p-2.5 text-slate-600 hover:text-slate-900 disabled:text-slate-300" disabled={qty <= 1} onClick={() => setQty((q) => q - 1)}>
+                    <Minus className="size-4" />
+                  </button>
+                  <span className="w-10 text-center text-sm font-semibold tabular-nums" aria-live="polite">
+                    {qty}
+                  </span>
+                  <button type="button" aria-label="Increase quantity" className="p-2.5 text-slate-600 hover:text-slate-900 disabled:text-slate-300" disabled={qty >= Math.min(10, remaining)} onClick={() => setQty((q) => q + 1)}>
+                    <Plus className="size-4" />
+                  </button>
+                </div>
+                {inCart > 0 && <span className="text-sm text-slate-500">{inCart} in cart</span>}
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <Button
+                  variant="outline"
+                  className="py-3"
                   disabled={remaining === 0}
                   onClick={() => {
-                    add(product, Math.min(qty, remaining));
+                    add(product, amount);
                     setQty(1);
+                    setAdded(true);
+                    setTimeout(() => setAdded(false), 1500);
                   }}
                 >
-                  {remaining === 0 ? 'All available stock is in your cart' : 'Add to cart'}
+                  <ShoppingCart className="size-4" /> {remaining === 0 ? 'All stock in cart' : added ? 'Added to cart' : 'Add to Cart'}
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="dark"
+                  className="py-3"
                   disabled={remaining === 0 && inCart === 0}
                   onClick={() => {
-                    if (remaining > 0) add(product, Math.min(qty, remaining));
-                    router.push('/cart');
+                    if (remaining > 0) add(product, amount);
+                    router.push('/checkout');
                   }}
                 >
-                  Buy now
+                  <Zap className="size-4" /> Buy Now
                 </Button>
               </div>
             </div>
           )}
+          {!product.inStock && <StockNote product={product} className="mt-6 text-sm" />}
+
+          <div className="mt-8 border-t border-slate-100 pt-6">
+            <FeatureStrip compact />
+          </div>
         </div>
       </div>
+
+      <section className="rounded-3xl border border-slate-200 bg-white">
+        <div className="flex gap-6 border-b border-slate-200 px-6" role="tablist">
+          {(
+            [
+              ['specs', 'Specifications'],
+              ['related', `Related Products${related.length ? ` (${related.length})` : ''}`],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
+              className={cx('-mb-px border-b-2 py-4 text-sm font-semibold', tab === value ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-900')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="p-6">
+          {tab === 'specs' ? (
+            <dl className="divide-y divide-slate-100 text-sm">
+              {specs.map(([k, v]) => (
+                <div key={k} className="grid grid-cols-[140px_1fr] gap-4 py-3">
+                  <dt className="text-slate-500">{k}</dt>
+                  <dd className="text-slate-900">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : related.length === 0 ? (
+            <p className="text-sm text-slate-500">No other products in this category yet.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+              {related.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

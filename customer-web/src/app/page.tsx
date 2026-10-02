@@ -1,11 +1,5 @@
-import { Suspense } from 'react';
-import { Catalog } from './Catalog';
-import { PageLoader } from '@/components/ui';
+import { Home } from './Home';
 
 export default function HomePage() {
-  return (
-    <Suspense fallback={<PageLoader />}>
-      <Catalog />
-    </Suspense>
-  );
+  return <Home />;
 }

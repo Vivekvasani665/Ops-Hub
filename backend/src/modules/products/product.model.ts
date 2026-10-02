@@ -8,6 +8,9 @@ const productSchema = new Schema(
     sku: { type: String, required: true, uppercase: true, trim: true },
     category: { type: String, required: true, trim: true },
     price: { type: Number, required: true, min: 0 }, // minor units (paise)
+    /** Optional storefront media; the customer web shows a category tile when absent. */
+    imageUrl: { type: String, trim: true, default: null },
+    description: { type: String, trim: true, default: null },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true },
