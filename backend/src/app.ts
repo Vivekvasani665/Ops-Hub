@@ -30,7 +30,7 @@ import { organizationRouter } from './modules/organizations/organization.routes'
 const originGuard: RequestHandler = (req, _res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
   const origin = req.get('origin');
-  if (origin && origin !== env.WEB_ORIGIN) return next(Errors.forbidden('Cross-origin request blocked'));
+  if (origin && !env.WEB_ORIGIN.includes(origin)) return next(Errors.forbidden('Cross-origin request blocked'));
   next();
 };
 

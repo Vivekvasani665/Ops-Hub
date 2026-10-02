@@ -8,7 +8,11 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32).default('dev-refresh-secret-change-me-0123456789abcdef'),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().default(15 * 60),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().default(7),
-  WEB_ORIGIN: z.string().default('http://localhost:5173'),
+  /** comma-separated list of allowed frontend origins */
+  WEB_ORIGIN: z
+    .string()
+    .default('http://localhost:5173')
+    .transform((v) => v.split(',').map((o) => o.trim()).filter(Boolean)),
   /** optional path to a built frontend to serve as static files */
   WEB_DIST: z.string().optional(),
   AUTO_SEED: z
