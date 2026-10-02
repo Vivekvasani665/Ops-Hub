@@ -1,0 +1,52 @@
+# Backend only: MongoDB + API + worker.  docker compose up --build  →  API on http://localhost:4000
+# Run the frontend separately (see ../frontend) pointing at this API.
+# Scale workers to see lease-based job claiming across processes:
+#   docker compose up --build --scale worker=3
+services:
+  mongo:
+    image: mongo:7
+    # Transactions and change streams need a replica set, even with one node.
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
+
+  api:
+    build: .
+    environment: &app-env
+      NODE_ENV: production
+      API_PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017/opshub?replicaSet=rs0
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+      # Replace both secrets for anything beyond local evaluation (the API refuses dev defaults in production).
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-compose-access-secret-please-change-0123456789}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-compose-refresh-secret-please-change-0123456789}
+      AUTO_SEED: 'true'
+    ports:
+      - '4000:4000'
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ['npm', 'run', 'worker']
+    environment: *app-env
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
