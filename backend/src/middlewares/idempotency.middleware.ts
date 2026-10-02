@@ -45,7 +45,7 @@ export function idempotency({ required = true } = {}): RequestHandler {
     try {
       await IdempotencyKey.create({
         organizationId,
-        userId: req.auth!.userId,
+        userId: req.auth?.userId ?? req.customer!.id,
         key,
         method: req.method,
         path: `${req.baseUrl}${req.path}`,

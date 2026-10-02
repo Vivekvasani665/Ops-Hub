@@ -14,8 +14,9 @@ import { Job } from '../src/modules/jobs/job.model';
 import { Notification } from '../src/modules/notifications/notification.model';
 import { IdempotencyKey } from '../src/modules/idempotency/idempotency.model';
 import { RefreshToken } from '../src/modules/auth/refresh-token.model';
+import { Customer, CustomerSession } from '../src/modules/storefront/customer.model';
 
-export const ALL_MODELS = [Organization, User, Product, Inventory, Order, Counter, AuditLog, Job, Notification, IdempotencyKey, RefreshToken];
+export const ALL_MODELS = [Organization, User, Product, Inventory, Order, Counter, AuditLog, Job, Notification, IdempotencyKey, RefreshToken, Customer, CustomerSession];
 export const PASSWORD = 'Password123!';
 const passwordHash = bcrypt.hashSync(PASSWORD, 4);
 

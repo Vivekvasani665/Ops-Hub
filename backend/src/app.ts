@@ -22,6 +22,7 @@ import { jobRouter } from './modules/jobs/job.routes';
 import { notificationRouter } from './modules/notifications/notification.routes';
 import { userRouter } from './modules/users/user.routes';
 import { organizationRouter } from './modules/organizations/organization.routes';
+import { storefrontRouter } from './modules/storefront/storefront.routes';
 
 /**
  * CSRF defence in depth on top of SameSite cookies: a state-changing request that declares an
@@ -52,6 +53,8 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRouter);
+  // Customer web storefront: its own customer sessions, tenant fixed by STOREFRONT_ORG_SLUG.
+  app.use('/api/storefront', storefrontRouter);
 
   // Everything below is authenticated and tenant-scoped. `req.tenantId` comes only from the verified token.
   const protectedApi = Router();

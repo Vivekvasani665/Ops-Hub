@@ -21,6 +21,8 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
   LOGIN_RATE_LIMIT: z.coerce.number().int().default(20),
   ORG_TIMEZONE: z.string().default('Asia/Kolkata'),
+  /** organization whose catalog the customer web storefront sells */
+  STOREFRONT_ORG_SLUG: z.string().default('acme'),
   WORKER_POLL_MS: z.coerce.number().int().default(1000),
   WORKER_LEASE_MS: z.coerce.number().int().default(30_000),
   WORKER_CONCURRENCY: z.coerce.number().int().default(4),

@@ -12,10 +12,11 @@ import { Job } from '../modules/jobs/job.model';
 import { Notification } from '../modules/notifications/notification.model';
 import { IdempotencyKey } from '../modules/idempotency/idempotency.model';
 import { RefreshToken } from '../modules/auth/refresh-token.model';
+import { Customer, CustomerSession } from '../modules/storefront/customer.model';
 
 export const SEED_PASSWORD = 'Password123!';
 
-const MODELS = [Organization, User, Product, Inventory, Order, Counter, AuditLog, Job, Notification, IdempotencyKey, RefreshToken];
+const MODELS = [Organization, User, Product, Inventory, Order, Counter, AuditLog, Job, Notification, IdempotencyKey, RefreshToken, Customer, CustomerSession];
 
 // Deterministic PRNG so every seed produces the same dataset.
 function mulberry32(seed: number) {
