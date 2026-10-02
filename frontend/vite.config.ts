@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
     server: {
-      port: 5173,
+      port: Number(env.WEB_PORT) || 5173,
       strictPort: true, // backend WEB_ORIGIN only allows 5173; fail loudly instead of drifting to 5174
       proxy: {
         '/api': { target: apiTarget, changeOrigin: true },
