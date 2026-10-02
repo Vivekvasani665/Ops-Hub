@@ -1,10 +1,12 @@
 import type { Types } from 'mongoose';
-import { ORDER_STATUSES, type DashboardSummaryDto, type DashboardTrendPoint, type OrderStatus } from '@shared';
+import { ORDER_STATUSES, type DashboardRange, type DashboardSummaryDto, type DashboardTrendPoint, type OrderStatus } from '@shared';
 import { env } from '../../config/env';
 import { isoDateInTz, startOfDayInTz, weekdayInTz } from '../../utils/time';
 import { Order } from '../orders/order.model';
 import { Inventory } from '../inventory/inventory.model';
 import { Organization } from '../organizations/organization.model';
+import { Product } from '../products/product.model';
+import { Customer } from '../storefront/customer.model';
 
 const DAY_MS = 86_400_000;
 
@@ -16,11 +18,11 @@ const DAY_MS = 86_400_000;
 const CACHE_TTL_MS = env.NODE_ENV === 'test' ? 0 : 5_000;
 const cache = new Map<string, { at: number; value: Promise<DashboardSummaryDto> }>();
 
-export function getDashboardSummaryCached(orgId: Types.ObjectId): Promise<DashboardSummaryDto> {
-  const key = String(orgId);
+export function getDashboardSummaryCached(orgId: Types.ObjectId, rangeDays: DashboardRange = 7): Promise<DashboardSummaryDto> {
+  const key = `${String(orgId)}:${rangeDays}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
-  const value = getDashboardSummary(orgId);
+  const value = getDashboardSummary(orgId, new Date(), rangeDays);
   cache.set(key, { at: Date.now(), value });
   value.catch(() => cache.delete(key));
   return value;
@@ -31,14 +33,29 @@ export function getDashboardSummaryCached(orgId: Types.ObjectId): Promise<Dashbo
  * organizationId (see order.model / inventory.model), so cost scales with the tenant's own data.
  * "Today" is computed in the organization's timezone, not the server's.
  */
-export async function getDashboardSummary(orgId: Types.ObjectId, now = new Date()): Promise<DashboardSummaryDto> {
+export async function getDashboardSummary(
+  orgId: Types.ObjectId,
+  now = new Date(),
+  rangeDays: DashboardRange = 7,
+): Promise<DashboardSummaryDto> {
   const org = await Organization.findById(orgId).select({ timezone: 1 }).lean();
   const tz = org?.timezone ?? env.ORG_TIMEZONE;
 
-  const trendStart = startOfDayInTz(now, tz, 6);
+  const trendStart = startOfDayInTz(now, tz, rangeDays - 1);
+  const last7Start = startOfDayInTz(now, tz, 6);
   const prev7Start = startOfDayInTz(now, tz, 13);
 
-  const [byStatus, trendRows, deliveredRows, lowStockProducts, outOfStockProducts] = await Promise.all([
+  const [
+    byStatus,
+    trendRows,
+    deliveredRows,
+    lowStockProducts,
+    outOfStockProducts,
+    revenueRows,
+    totalProducts,
+    totalCustomers,
+    newCustomers,
+  ] = await Promise.all([
     Order.aggregate<{ _id: OrderStatus; n: number }>([
       { $match: { organizationId: orgId } },
       { $group: { _id: '$status', n: { $sum: 1 } } },
@@ -58,7 +75,7 @@ export async function getDashboardSummary(orgId: Types.ObjectId, now = new Date(
       { $match: { organizationId: orgId, status: 'DELIVERED', updatedAt: { $gte: prev7Start } } },
       {
         $group: {
-          _id: { $cond: [{ $gte: ['$updatedAt', trendStart] }, 'current', 'previous'] },
+          _id: { $cond: [{ $gte: ['$updatedAt', last7Start] }, 'current', 'previous'] },
           n: { $sum: 1 },
         },
       },
@@ -69,21 +86,28 @@ export async function getDashboardSummary(orgId: Types.ObjectId, now = new Date(
       $expr: { $lte: ['$available', '$reorderLevel'] },
     }),
     Inventory.countDocuments({ organizationId: orgId, available: 0 }),
+    Order.aggregate<{ total: number }>([
+      { $match: { organizationId: orgId, status: { $ne: 'CANCELLED' } } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+    ]),
+    Product.countDocuments({ organizationId: orgId }),
+    Customer.countDocuments({ organizationId: orgId }),
+    Customer.countDocuments({ organizationId: orgId, createdAt: { $gte: trendStart } }),
   ]);
 
   const statusDistribution = Object.fromEntries(ORDER_STATUSES.map((s) => [s, 0])) as Record<OrderStatus, number>;
   for (const row of byStatus) statusDistribution[row._id] = row.n;
 
   const byDay = new Map(trendRows.map((r) => [r._id, r]));
-  const trend: DashboardTrendPoint[] = Array.from({ length: 7 }, (_, i) => {
+  const trend: DashboardTrendPoint[] = Array.from({ length: rangeDays }, (_, i) => {
     // Midday of each local day avoids DST edge cases when formatting.
     const instant = new Date(trendStart.getTime() + i * DAY_MS + DAY_MS / 2);
     const date = isoDateInTz(instant, tz);
     const row = byDay.get(date);
     return { date, label: weekdayInTz(instant, tz), orders: row?.orders ?? 0, revenue: row?.revenue ?? 0 };
   });
-  const today = trend[6]!;
-  const yesterday = trend[5]!;
+  const today = trend[rangeDays - 1]!;
+  const yesterday = trend[rangeDays - 2]!;
   const delivered = Object.fromEntries(deliveredRows.map((r) => [r._id, r.n]));
 
   return {
@@ -100,8 +124,13 @@ export async function getDashboardSummary(orgId: Types.ObjectId, now = new Date(
     revenueYesterday: yesterday.revenue,
     lowStockProducts,
     outOfStockProducts,
+    totalRevenue: revenueRows[0]?.total ?? 0,
+    totalProducts,
+    totalCustomers,
+    newCustomers,
     statusDistribution,
     trend,
+    rangeDays,
     generatedAt: now.toISOString(),
   };
 }

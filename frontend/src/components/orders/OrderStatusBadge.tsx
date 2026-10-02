@@ -5,7 +5,7 @@ import { ORDER_STATUS_META } from '@/lib/status';
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   const meta = ORDER_STATUS_META[status];
   return (
-    <Badge tone={meta.tone} dot>
+    <Badge tone={meta.tone}>
       {meta.label}
     </Badge>
   );

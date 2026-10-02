@@ -25,7 +25,8 @@ Common codes: `VALIDATION_ERROR` (400), `UNAUTHENTICATED` / `TOKEN_EXPIRED` (401
 | GET | `/auth/me` | – | `{ data: { user: AuthUser } }` |
 
 ## Dashboard
-`GET /dashboard/summary` returns `{ data: DashboardSummaryDto }`. `trend` holds the last 7 days, oldest first.
+`GET /dashboard/summary?days=7|30` returns `{ data: DashboardSummaryDto }`. `trend` holds the last `days` days (default 7), oldest first.
+It also carries all-time `totalRevenue` (non-cancelled orders), `totalProducts`, `totalCustomers`, and `newCustomers` (sign-ups inside the window).
 
 ## Orders
 - `GET /orders?page=1&limit=10&status=PENDING&search=rahul&from=2026-09-01&to=2026-10-02` returns `{ data: OrderListItemDto[], meta: PageMeta }`.
@@ -56,8 +57,34 @@ Customer session required. Amounts always come from the order in the database, a
 - The worker cancels unpaid online orders after `PAYMENT_TIMEOUT_MINUTES` (default 30) and releases their stock. It checks with Razorpay one last time first.
 
 ## Products & Inventory
-- `GET /products?search=&page=&limit=` returns `{ data: (ProductDto & { inventory: { available, reserved, reorderLevel } | null })[], meta: PageMeta }`
-- `POST /products` with body `CreateProductInput` returns `201 { data: ProductDto }`
+- `GET /products?search=&category=&status=active|inactive&sort=name|newest|oldest|price_asc|price_desc&page=&limit=` returns `{ data: ProductWithInventoryDto[], meta: PageMeta }`
+- `GET /products/:id` returns `{ data: ProductWithInventoryDto }`
+- `POST /products` with body `CreateProductInput` (optional `imageUrl`, `description`, `isActive`) returns `201 { data: ProductDto }`
+- `PATCH /products/:id` with body `UpdateProductInput` (any of name, sku, category, price, imageUrl, description, isActive, reorderLevel) returns `{ data: ProductWithInventoryDto }`.
+  Stock is not edited here: use `POST /inventory/:productId/adjust`, so every change stays an audited delta.
+- `DELETE /products/:id` removes the product and its inventory row. It returns `409 PRODUCT_HAS_RESERVATIONS` while open orders hold reserved units. Order lines keep their own snapshot.
+
+## Images
+- `POST /media` (`products:write`) takes the raw image bytes as the body (JPG, PNG, WebP or GIF, up to 2 MB, type sniffed from the bytes). It returns `201 { data: { id, url } }`.
+- `GET /storefront/media/:id` is public and cacheable forever. It lives under `/storefront` so the customer web's proxy serves catalog images too.
+  An upload is deleted once no product or category refers to it any more.
+
+## Categories (`products:read` / `products:write`)
+Products still store their category as a string. The `categories` collection adds empty categories, an image, and renaming.
+- `GET /categories` returns `{ data: CategoryDto[] }` with product counts. Category names that only exist on products get a row on first listing.
+- `POST /categories` with body `{ name, imageUrl? }` returns `201`, or `409 DUPLICATE_CATEGORY` (names are case-insensitive).
+- `PATCH /categories/:id` with body `{ name, imageUrl? }` returns `{ data, meta: { productsMoved } }`. A rename moves every product of the category in the same transaction.
+- `DELETE /categories/:id` returns `409 CATEGORY_IN_USE` while products use it.
+
+## Customers (`customers:read`)
+`GET /customers?search=&status=ACTIVE|DISABLED&page=&limit=` returns `{ data: CustomerDto[], meta: PageMeta }`. These are storefront accounts with `orderCount`, `totalSpent` (non-cancelled) and `lastOrderAt`.
+
+## Coupons (`coupons:read` / `coupons:write`)
+- `GET /coupons?search=&status=active|inactive|expired&page=&limit=` returns `{ data: CouponDto[], meta: PageMeta }`.
+- `POST /coupons` / `PATCH /coupons/:id` take body `CouponInput`: `{ code, type: PERCENT|FIXED, value, minOrderAmount, maxDiscount?, startsAt?, expiresAt?, usageLimit?, isActive, description? }`.
+  PERCENT `value` is 1–100; FIXED `value` and all amounts are paise. A duplicate code returns `409 DUPLICATE_COUPON`.
+- `DELETE /coupons/:id`.
+- Checkout does not redeem coupons yet, so `usedCount` stays 0.
 - `GET /inventory?search=&stock=all|low|out&page=&limit=` returns `{ data: InventoryItemDto[], meta: PageMeta }`
 - `POST /inventory/:productId/adjust` with body `{ delta, reason }` returns `{ data: InventoryItemDto }`
 

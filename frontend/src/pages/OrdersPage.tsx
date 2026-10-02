@@ -61,7 +61,7 @@ export function OrdersPage() {
     <div>
       <PageHeader
         title="Orders"
-        description="Track and move orders through their lifecycle."
+        breadcrumbs={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Orders' }]}
         actions={
           canCreate && (
             <Button onClick={() => openCreate(true)}>
@@ -75,7 +75,7 @@ export function OrdersPage() {
           <Input
             className="lg:w-80"
             icon={<Search className="h-4 w-4" />}
-            placeholder="Search order #, customer name or email"
+            placeholder="Search by order ID or customer..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

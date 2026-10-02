@@ -1,15 +1,22 @@
 import {
   Boxes,
   FileText,
+  FolderPen,
+  FolderPlus,
+  FolderX,
   LogIn,
   LogOut,
   Package,
   PackageMinus,
   PackagePlus,
+  PackageX,
+  PencilLine,
   RefreshCw,
   RotateCcw,
   ShieldAlert,
   ShoppingCart,
+  TicketPercent,
+  TicketX,
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
@@ -28,6 +35,14 @@ export const AUDIT_ACTION_META: Record<AuditAction, { label: string; icon: Lucid
   INVENTORY_RELEASED: { label: 'Inventory released', icon: PackagePlus, tone: 'bg-teal-50 text-teal-600 ring-teal-100' },
   INVENTORY_ADJUSTED: { label: 'Inventory adjusted', icon: Boxes, tone: 'bg-amber-50 text-amber-600 ring-amber-100' },
   PRODUCT_CREATED: { label: 'Product created', icon: Package, tone: 'bg-violet-50 text-violet-600 ring-violet-100' },
+  PRODUCT_UPDATED: { label: 'Product updated', icon: PencilLine, tone: 'bg-violet-50 text-violet-600 ring-violet-100' },
+  PRODUCT_DELETED: { label: 'Product deleted', icon: PackageX, tone: 'bg-red-50 text-red-600 ring-red-100' },
+  CATEGORY_CREATED: { label: 'Category created', icon: FolderPlus, tone: 'bg-sky-50 text-sky-600 ring-sky-100' },
+  CATEGORY_UPDATED: { label: 'Category updated', icon: FolderPen, tone: 'bg-sky-50 text-sky-600 ring-sky-100' },
+  CATEGORY_DELETED: { label: 'Category deleted', icon: FolderX, tone: 'bg-red-50 text-red-600 ring-red-100' },
+  COUPON_CREATED: { label: 'Coupon created', icon: TicketPercent, tone: 'bg-pink-50 text-pink-600 ring-pink-100' },
+  COUPON_UPDATED: { label: 'Coupon updated', icon: TicketPercent, tone: 'bg-pink-50 text-pink-600 ring-pink-100' },
+  COUPON_DELETED: { label: 'Coupon deleted', icon: TicketX, tone: 'bg-red-50 text-red-600 ring-red-100' },
   JOB_RETRIED: { label: 'Job retried', icon: RotateCcw, tone: 'bg-slate-100 text-slate-600 ring-slate-200' },
 };
 
@@ -88,6 +103,18 @@ export function describeAudit(log: AuditLogDto): { title: string; detail?: strin
         detail: [str(m.name) ?? str(m.sku), Number.isFinite(delta) ? `${sign}${delta}` : undefined].filter(Boolean).join(' ') || undefined,
       };
     }
+    case 'PRODUCT_UPDATED':
+    case 'PRODUCT_DELETED':
+      return { title: auditMeta(log.action).label, detail: [str(m.name), str(m.sku) && `(${str(m.sku)})`].filter(Boolean).join(' ') || undefined };
+    case 'CATEGORY_UPDATED':
+      return { title: 'Category updated', detail: str(m.previousName) ? `${str(m.previousName)} → ${str(m.name)}` : str(m.name) };
+    case 'CATEGORY_CREATED':
+    case 'CATEGORY_DELETED':
+      return { title: auditMeta(log.action).label, detail: str(m.name) };
+    case 'COUPON_CREATED':
+    case 'COUPON_UPDATED':
+    case 'COUPON_DELETED':
+      return { title: auditMeta(log.action).label, detail: str(m.code) };
     case 'PRODUCT_CREATED':
       return { title: 'Product created', detail: [str(m.name), str(m.sku) && `(${str(m.sku)})`].filter(Boolean).join(' ') || undefined };
     case 'USER_LOGGED_IN':

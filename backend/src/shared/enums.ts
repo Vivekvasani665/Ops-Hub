@@ -39,11 +39,19 @@ export const AUDIT_ACTIONS = [
   'INVENTORY_RELEASED',
   'INVENTORY_ADJUSTED',
   'PRODUCT_CREATED',
+  'PRODUCT_UPDATED',
+  'PRODUCT_DELETED',
+  'CATEGORY_CREATED',
+  'CATEGORY_UPDATED',
+  'CATEGORY_DELETED',
+  'COUPON_CREATED',
+  'COUPON_UPDATED',
+  'COUPON_DELETED',
   'JOB_RETRIED',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const ENTITY_TYPES = ['ORDER', 'PRODUCT', 'INVENTORY', 'USER', 'JOB', 'ORGANIZATION'] as const;
+export const ENTITY_TYPES = ['ORDER', 'PRODUCT', 'INVENTORY', 'USER', 'JOB', 'ORGANIZATION', 'CATEGORY', 'COUPON'] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
 export const STOCK_STATUSES = ['IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK'] as const;
@@ -56,3 +64,7 @@ export const NOTIFICATION_TYPES = [
   'DAILY_REPORT',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+/** PERCENT: `value` is a whole percentage (1–100). FIXED: `value` is an amount in paise. */
+export const COUPON_TYPES = ['PERCENT', 'FIXED'] as const;
+export type CouponType = (typeof COUPON_TYPES)[number];

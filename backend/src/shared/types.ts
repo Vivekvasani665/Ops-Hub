@@ -1,5 +1,6 @@
 import type {
   AuditAction,
+  CouponType,
   EntityType,
   JobStatus,
   JobType,
@@ -104,8 +105,62 @@ export interface ProductDto {
   sku: string;
   category: string;
   price: number;
+  imageUrl: string | null;
+  description: string | null;
   isActive: boolean;
   createdAt: string;
+}
+
+export interface ProductInventoryDto {
+  available: number;
+  reserved: number;
+  reorderLevel: number;
+}
+
+export type ProductWithInventoryDto = ProductDto & { inventory: ProductInventoryDto | null };
+
+export interface CategoryDto {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  productCount: number;
+  activeProductCount: number;
+  createdAt: string;
+}
+
+/** A storefront shopper, with totals over their non-cancelled orders. */
+export interface CustomerDto {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  status: 'ACTIVE' | 'DISABLED';
+  orderCount: number;
+  totalSpent: number;
+  lastOrderAt: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export interface CouponDto {
+  id: string;
+  code: string;
+  description: string | null;
+  type: CouponType;
+  value: number;
+  minOrderAmount: number;
+  maxDiscount: number | null;
+  startsAt: string | null;
+  expiresAt: string | null;
+  usageLimit: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface MediaUploadDto {
+  id: string;
+  url: string;
 }
 
 export interface InventoryItemDto {
@@ -171,6 +226,9 @@ export interface DashboardTrendPoint {
   revenue: number;
 }
 
+export const DASHBOARD_RANGES = [7, 30] as const;
+export type DashboardRange = (typeof DASHBOARD_RANGES)[number];
+
 export interface DashboardSummaryDto {
   ordersToday: number;
   ordersYesterday: number;
@@ -185,8 +243,16 @@ export interface DashboardSummaryDto {
   revenueYesterday: number;
   lowStockProducts: number;
   outOfStockProducts: number;
+  /** All-time revenue of non-cancelled orders (paise). */
+  totalRevenue: number;
+  totalProducts: number;
+  totalCustomers: number;
+  /** Storefront sign-ups inside the trend window. */
+  newCustomers: number;
   statusDistribution: Record<OrderStatus, number>;
+  /** One point per day for the last `rangeDays` days, oldest first. */
   trend: DashboardTrendPoint[];
+  rangeDays: DashboardRange;
   generatedAt: string;
 }
 

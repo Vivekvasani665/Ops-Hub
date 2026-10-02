@@ -17,6 +17,10 @@ const OrdersPage = page(() => import('@/pages/OrdersPage'), 'OrdersPage');
 const OrderDetailPage = page(() => import('@/pages/OrderDetailPage'), 'OrderDetailPage');
 const InventoryPage = page(() => import('@/pages/InventoryPage'), 'InventoryPage');
 const ProductsPage = page(() => import('@/pages/ProductsPage'), 'ProductsPage');
+const ProductFormPage = page(() => import('@/pages/ProductFormPage'), 'ProductFormPage');
+const CategoriesPage = page(() => import('@/pages/CategoriesPage'), 'CategoriesPage');
+const CustomersPage = page(() => import('@/pages/CustomersPage'), 'CustomersPage');
+const CouponsPage = page(() => import('@/pages/CouponsPage'), 'CouponsPage');
 const AuditLogsPage = page(() => import('@/pages/AuditLogsPage'), 'AuditLogsPage');
 const JobsPage = page(() => import('@/pages/JobsPage'), 'JobsPage');
 const AnalyticsPage = page(() => import('@/pages/AnalyticsPage'), 'AnalyticsPage');
@@ -61,6 +65,11 @@ export const router = createBrowserRouter([
       { path: 'orders/:id', element: guarded(<OrderDetailPage />, 'orders:read') },
       { path: 'inventory', element: guarded(<InventoryPage />, 'inventory:read') },
       { path: 'products', element: guarded(<ProductsPage />, 'products:read') },
+      { path: 'products/new', element: guarded(<ProductFormPage />, 'products:write') },
+      { path: 'products/:id/edit', element: guarded(<ProductFormPage />, 'products:write') },
+      { path: 'categories', element: guarded(<CategoriesPage />, 'products:read') },
+      { path: 'customers', element: guarded(<CustomersPage />, 'customers:read') },
+      { path: 'coupons', element: guarded(<CouponsPage />, 'coupons:read') },
       { path: 'audit-logs', element: guarded(<AuditLogsPage />, 'audit:read') },
       { path: 'jobs', element: guarded(<JobsPage />, 'jobs:read') },
       { path: 'analytics', element: guarded(<AnalyticsPage />, 'dashboard:read') },

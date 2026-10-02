@@ -24,6 +24,10 @@ import { userRouter } from './modules/users/user.routes';
 import { organizationRouter } from './modules/organizations/organization.routes';
 import { storefrontRouter } from './modules/storefront/storefront.routes';
 import { paymentWebhookRouter } from './modules/payments/payment.webhook';
+import { categoryRouter } from './modules/categories/category.routes';
+import { customerRouter } from './modules/customers/customer.routes';
+import { couponRouter } from './modules/coupons/coupon.routes';
+import { mediaPublicRouter, mediaRouter } from './modules/media/media.routes';
 
 /**
  * CSRF defence in depth on top of SameSite cookies: a state-changing request that declares an
@@ -56,6 +60,8 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRouter);
+  // Uploaded catalog images are public and live under /api/storefront so the customer web's proxy reaches them.
+  app.use('/api/storefront/media', mediaPublicRouter);
   // Customer web storefront: its own customer sessions, tenant fixed by STOREFRONT_ORG_SLUG.
   app.use('/api/storefront', storefrontRouter);
 
@@ -65,6 +71,10 @@ export function createApp() {
   protectedApi.use('/dashboard', dashboardRouter);
   protectedApi.use('/orders', orderRouter);
   protectedApi.use('/products', productRouter);
+  protectedApi.use('/categories', categoryRouter);
+  protectedApi.use('/customers', customerRouter);
+  protectedApi.use('/coupons', couponRouter);
+  protectedApi.use('/media', mediaRouter);
   protectedApi.use('/inventory', inventoryRouter);
   protectedApi.use('/audit-logs', auditRouter);
   protectedApi.use('/jobs', jobRouter);

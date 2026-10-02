@@ -1,17 +1,13 @@
-import { Box } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 
+/** Brand mark; always rendered on the dark navy surfaces (sidebar, login panel). */
 export function Logo({ compact }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-900/40">
-        <Box className="h-5 w-5 text-white" strokeWidth={2.2} />
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+        <ShoppingBag className="h-[18px] w-[18px] text-navy-900" strokeWidth={2.4} />
       </div>
-      {!compact && (
-        <div className="leading-tight">
-          <p className="text-lg font-bold tracking-tight text-white">OpsHub</p>
-          <p className="text-[11px] text-slate-300/80">Order &amp; Operations Platform</p>
-        </div>
-      )}
+      {!compact && <p className="text-lg font-bold tracking-tight text-white">OpsHub</p>}
     </div>
   );
 }
