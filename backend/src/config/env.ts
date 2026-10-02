@@ -23,6 +23,14 @@ const envSchema = z.object({
   ORG_TIMEZONE: z.string().default('Asia/Kolkata'),
   /** organization whose catalog the customer web storefront sells */
   STOREFRONT_ORG_SLUG: z.string().default('acme'),
+  /** Razorpay API keys. Online payments are disabled (COD only) until both are set. Never sent to a client except the key id. */
+  RAZORPAY_KEY_ID: z.string().trim().optional(),
+  RAZORPAY_KEY_SECRET: z.string().trim().optional(),
+  /** Secret configured on the Razorpay dashboard webhook; the webhook endpoint rejects every call without it. */
+  RAZORPAY_WEBHOOK_SECRET: z.string().trim().optional(),
+  RAZORPAY_API_URL: z.string().default('https://api.razorpay.com/v1'),
+  /** Unpaid online orders are cancelled (stock released) after this many minutes. */
+  PAYMENT_TIMEOUT_MINUTES: z.coerce.number().int().min(5).default(30),
   WORKER_POLL_MS: z.coerce.number().int().default(1000),
   WORKER_LEASE_MS: z.coerce.number().int().default(30_000),
   WORKER_CONCURRENCY: z.coerce.number().int().default(4),
@@ -35,6 +43,8 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+export const razorpayEnabled = Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
 
 if (
   env.NODE_ENV === 'production' &&

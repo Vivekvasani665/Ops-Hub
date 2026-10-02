@@ -34,6 +34,26 @@ Common codes: `VALIDATION_ERROR` (400), `UNAUTHENTICATED` / `TOKEN_EXPIRED` (401
 - `POST /orders` with the header **`Idempotency-Key: <uuid>`** (required) and body `CreateOrderInput` returns `201 { data: OrderDto }`.
   A retry with the same key and body replays the original response (`Idempotent-Replayed: true` header).
 - `PATCH /orders/:id/status` with body `{ status, reason? }` returns `{ data: OrderDto }`.
+  An online (Razorpay) order that is not yet `PAID` can only be cancelled (`409 PAYMENT_NOT_COMPLETED` otherwise).
+  Delivering a COD order marks its payment `PAID`.
+- `OrderDto.payment` / `OrderListItemDto.payment` hold `{ method: RAZORPAY|COD, status: PENDING|PAID|FAILED|REFUNDED, instrument, … }`.
+  The value is `null` for orders created by staff.
+
+## Storefront payments (Razorpay)
+Customer session required. Amounts always come from the order in the database, and the key secret never leaves the server.
+1. `POST /storefront/orders` with `paymentMethod: "RAZORPAY"` creates the order as `PENDING` with payment `PENDING` and reserves stock.
+   It returns `503 PAYMENTS_UNAVAILABLE` when the Razorpay keys are not configured. COD (`"COD"`, the default) works the same way, without the steps below.
+2. `POST /storefront/payments/razorpay/order` with body `{ orderId }` returns `{ keyId, razorpayOrderId, amount, currency, expiresInSeconds, … }`.
+   Retries reuse the same Razorpay order.
+3. `POST /storefront/payments/razorpay/verify` with body `{ orderId, razorpay_order_id, razorpay_payment_id, razorpay_signature }` does two things:
+   it checks the HMAC signature and re-fetches the payment from Razorpay. The order then becomes `CONFIRMED` with payment `PAID`.
+   A bad signature returns `400 PAYMENT_VERIFICATION_FAILED`.
+4. `POST /storefront/payments/razorpay/reconcile` with body `{ orderId }` asks Razorpay for the order's payments, for when the browser lost the result.
+- `POST /payments/razorpay/webhook` is server-to-server. It is verified with `X-Razorpay-Signature` (`RAZORPAY_WEBHOOK_SECRET`) and deduplicated by `X-Razorpay-Event-Id`.
+  It handles `payment.captured`, `payment.authorized`, `order.paid`, `payment.failed` and `refund.processed`.
+- Each path that marks an order paid uses a conditional update, so a payment is applied only once.
+  A payment that arrives for an order that was cancelled in the meantime is refunded automatically.
+- The worker cancels unpaid online orders after `PAYMENT_TIMEOUT_MINUTES` (default 30) and releases their stock. It checks with Razorpay one last time first.
 
 ## Products & Inventory
 - `GET /products?search=&page=&limit=` returns `{ data: (ProductDto & { inventory: { available, reserved, reorderLevel } | null })[], meta: PageMeta }`

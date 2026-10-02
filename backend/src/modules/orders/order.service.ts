@@ -6,6 +6,7 @@ import {
   type OrderListItemDto,
   type OrderStatus,
   type PageMeta,
+  type PaymentMethod,
   type Role,
   type UpdateOrderStatusInput,
 } from '@shared';
@@ -18,8 +19,8 @@ import { enqueueJob } from '../jobs/job.service';
 import { Product } from '../products/product.model';
 import { consumeReservedStock, releaseStock, reserveStock } from '../inventory/inventory.service';
 import { Counter, Order, type OrderDoc } from './order.model';
-import { toOrderDto, toOrderListItemDto } from './order.mapper';
-import { assertTransition, inventoryEffect, permissionForTransition } from './order.state-machine';
+import { toOrderDto, toOrderListItemDto, toPaymentDto } from './order.mapper';
+import { assertPaymentAllowsTransition, assertTransition, inventoryEffect, permissionForTransition } from './order.state-machine';
 
 export interface RequestContext {
   organizationId: Types.ObjectId;
@@ -43,7 +44,12 @@ function emitAudits(orgId: Types.ObjectId, docs: (AuditDoc | null)[]) {
  * Anything that throws rolls the whole thing back, so stock is never reserved for an order that
  * does not exist, and a job never exists for an order that was not committed.
  */
-export async function createOrder(ctx: RequestContext, input: CreateOrderInput): Promise<OrderDto> {
+export interface CreateOrderOptions {
+  /** Storefront orders only; the payment starts PENDING (COD is collected on delivery, Razorpay after checkout). */
+  paymentMethod?: PaymentMethod;
+}
+
+export async function createOrder(ctx: RequestContext, input: CreateOrderInput, opts: CreateOrderOptions = {}): Promise<OrderDto> {
   const { organizationId: orgId } = ctx;
   const productIds = input.items.map((i) => new Types.ObjectId(i.productId));
 
@@ -90,6 +96,7 @@ export async function createOrder(ctx: RequestContext, input: CreateOrderInput):
           items: lines,
           totalAmount: lines.reduce((sum, l) => sum + l.lineTotal, 0),
           status: 'PENDING',
+          ...(opts.paymentMethod ? { paymentMethod: opts.paymentMethod, paymentStatus: 'PENDING', payment: {} } : {}),
           notes: input.notes,
           statusHistory: [{ from: null, to: 'PENDING', changedBy: ctx.actor, at: now }],
           createdBy: ctx.actor,
@@ -184,11 +191,20 @@ export async function updateOrderStatus(
     if (!current) throw Errors.notFound('Order');
     const from = current.status as OrderStatus;
     assertTransition(from, input.status);
+    assertPaymentAllowsTransition(input.status, toPaymentDto(current));
+    // Cash on delivery is collected when the order is handed over.
+    const codCollected = input.status === 'DELIVERED' && current.paymentMethod === 'COD' && current.paymentStatus === 'PENDING';
+    // A payment that has not happened yet never will: a late Razorpay payment is refunded by the payments module.
+    const paymentAbandoned = input.status === 'CANCELLED' && current.paymentStatus === 'PENDING';
 
     const order = await Order.findOneAndUpdate(
       { _id: orderId, organizationId: orgId, status: from },
       {
-        $set: { status: input.status },
+        $set: {
+          status: input.status,
+          ...(codCollected ? { paymentStatus: 'PAID', 'payment.paidAt': new Date() } : {}),
+          ...(paymentAbandoned ? { paymentStatus: 'FAILED' } : {}),
+        },
         $push: {
           statusHistory: { from, to: input.status, changedBy: ctx.actor, reason: input.reason, at: new Date() },
         },
@@ -318,7 +334,17 @@ export async function listOrders(
 
   const [docs, total] = await Promise.all([
     Order.find(filter)
-      .select({ orderNumber: 1, customer: 1, 'items.quantity': 1, totalAmount: 1, status: 1, createdAt: 1 })
+      .select({
+        orderNumber: 1,
+        customer: 1,
+        'items.quantity': 1,
+        totalAmount: 1,
+        status: 1,
+        paymentMethod: 1,
+        paymentStatus: 1,
+        'payment.instrument': 1,
+        createdAt: 1,
+      })
       .sort({ createdAt: -1, _id: -1 })
       .skip(q.skip)
       .limit(q.limit)

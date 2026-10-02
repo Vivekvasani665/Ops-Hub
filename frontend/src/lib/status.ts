@@ -1,4 +1,4 @@
-import type { JobStatus, OrderStatus, StockStatus } from '@/shared';
+import type { JobStatus, OrderPaymentDto, OrderStatus, PaymentStatus, StockStatus } from '@/shared';
 import type { Tone } from '@/components/ui/Badge';
 
 export const ORDER_STATUS_META: Record<OrderStatus, { label: string; tone: Tone; color: string }> = {
@@ -32,3 +32,25 @@ export const TRANSITION_LABEL: Record<OrderStatus, string> = {
   DELIVERED: 'Mark delivered',
   CANCELLED: 'Cancel order',
 };
+
+export const PAYMENT_STATUS_META: Record<PaymentStatus, { label: string; tone: Tone }> = {
+  PENDING: { label: 'Pending', tone: 'amber' },
+  PAID: { label: 'Paid', tone: 'green' },
+  FAILED: { label: 'Failed', tone: 'red' },
+  REFUNDED: { label: 'Refunded', tone: 'gray' },
+};
+
+const INSTRUMENT_LABEL: Record<string, string> = {
+  upi: 'UPI',
+  card: 'Card',
+  wallet: 'Wallet',
+  netbanking: 'Net banking',
+  emi: 'EMI',
+  paylater: 'Pay later',
+};
+
+/** "COD", "UPI", "Card", … or "Online" while a Razorpay payment has not happened yet. */
+export function paymentMethodLabel(payment: Pick<OrderPaymentDto, 'method' | 'instrument'>): string {
+  if (payment.method === 'COD') return 'COD';
+  return (payment.instrument && INSTRUMENT_LABEL[payment.instrument]) || 'Online';
+}

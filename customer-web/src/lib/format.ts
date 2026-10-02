@@ -1,4 +1,4 @@
-import type { OrderStatus } from './types';
+import type { OrderPayment, OrderStatus, PaymentStatus } from './types';
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 
@@ -28,6 +28,28 @@ export const STATUS_STYLE: Record<OrderStatus, string> = {
   DELIVERED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
   CANCELLED: 'bg-rose-50 text-rose-700 ring-rose-200',
 };
+
+export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+  PENDING: 'Payment pending',
+  PAID: 'Paid',
+  FAILED: 'Payment failed',
+  REFUNDED: 'Refunded',
+};
+
+const INSTRUMENT_LABEL: Record<string, string> = {
+  upi: 'UPI',
+  card: 'Card',
+  wallet: 'Wallet',
+  netbanking: 'Net banking',
+  emi: 'EMI',
+  paylater: 'Pay later',
+};
+
+export function paymentMethodLabel(p: OrderPayment) {
+  if (p.method === 'COD') return 'Cash on delivery';
+  const instrument = p.instrument ? (INSTRUMENT_LABEL[p.instrument] ?? p.instrument) : 'Online payment';
+  return p.instrumentDetail && p.instrumentDetail !== instrument ? `${instrument} · ${p.instrumentDetail}` : instrument;
+}
 
 export function newIdempotencyKey() {
   return crypto.randomUUID();

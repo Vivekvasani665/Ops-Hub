@@ -54,6 +54,9 @@ function OrderList() {
                 </p>
               </div>
               <div className="flex items-center gap-4">
+                {o.payment && o.payment.payableForSeconds > 0 && (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">Awaiting payment</span>
+                )}
                 <StatusBadge status={o.status} />
                 <span className="w-28 text-right font-semibold tabular-nums">{money(o.totalAmount)}</span>
               </div>

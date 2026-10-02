@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
-import { ArrowLeft, Mail, User } from 'lucide-react';
+import { ArrowLeft, CreditCard, Mail, User } from 'lucide-react';
 import type { OrderStatus } from '@/shared';
 import { useOrder, useUpdateOrderStatus } from '@/features/orders/hooks';
 import { useCan } from '@/features/auth/hooks';
 import { toApiError } from '@/lib/api';
-import { ORDER_STATUS_META, TRANSITION_LABEL } from '@/lib/status';
+import { ORDER_STATUS_META, PAYMENT_STATUS_META, TRANSITION_LABEL, paymentMethodLabel } from '@/lib/status';
 import { formatDateTime, formatMoney, formatNumber } from '@/lib/utils';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
+import { PaymentBadge } from '@/components/orders/PaymentBadge';
 
 function DetailSkeleton() {
   return (
@@ -175,6 +176,52 @@ export function OrderDetailPage() {
               </a>
             </CardBody>
           </Card>
+          {o.payment && (
+            <Card>
+              <CardHeader title="Payment" />
+              <CardBody className="space-y-3 text-sm">
+                <p className="flex items-center gap-2 text-slate-800">
+                  <CreditCard className="h-4 w-4 text-slate-400" /> <PaymentBadge payment={o.payment} />
+                </p>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+                  <dt className="text-slate-500">Method</dt>
+                  <dd className="text-slate-800">
+                    {o.payment.method === 'COD' ? 'Cash on delivery' : `Razorpay · ${paymentMethodLabel(o.payment)}`}
+                    {o.payment.instrumentDetail && <span className="text-slate-500"> · {o.payment.instrumentDetail}</span>}
+                  </dd>
+                  <dt className="text-slate-500">Status</dt>
+                  <dd className="text-slate-800">{PAYMENT_STATUS_META[o.payment.status].label}</dd>
+                  {o.payment.razorpayPaymentId && (
+                    <>
+                      <dt className="text-slate-500">Payment ID</dt>
+                      <dd className="font-mono break-all text-slate-800">{o.payment.razorpayPaymentId}</dd>
+                    </>
+                  )}
+                  {o.payment.razorpayOrderId && (
+                    <>
+                      <dt className="text-slate-500">Razorpay order</dt>
+                      <dd className="font-mono break-all text-slate-800">{o.payment.razorpayOrderId}</dd>
+                    </>
+                  )}
+                  {o.payment.paidAt && (
+                    <>
+                      <dt className="text-slate-500">Paid at</dt>
+                      <dd className="text-slate-800">{formatDateTime(o.payment.paidAt)}</dd>
+                    </>
+                  )}
+                  {o.payment.refundedAt && (
+                    <>
+                      <dt className="text-slate-500">Refunded at</dt>
+                      <dd className="text-slate-800">{formatDateTime(o.payment.refundedAt)}</dd>
+                    </>
+                  )}
+                </dl>
+                {o.payment.method === 'RAZORPAY' && o.payment.status === 'PENDING' && o.status === 'PENDING' && (
+                  <p className="text-xs text-amber-700">Awaiting online payment. The order can be confirmed once the payment is verified.</p>
+                )}
+              </CardBody>
+            </Card>
+          )}
           <Card>
             <CardHeader title="Status timeline" />
             <CardBody>

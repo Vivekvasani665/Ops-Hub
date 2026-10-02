@@ -1,5 +1,5 @@
 import { Schema, model, type InferSchemaType } from 'mongoose';
-import { ORDER_STATUSES } from '@shared';
+import { ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES } from '@shared';
 
 const orderItemSchema = new Schema(
   {
@@ -24,6 +24,21 @@ const statusChangeSchema = new Schema(
   { _id: false },
 );
 
+/** Gateway details of a storefront order. Amounts are never stored here: `totalAmount` is the only price. */
+const paymentSchema = new Schema(
+  {
+    razorpayOrderId: { type: String, default: null },
+    razorpayPaymentId: { type: String, default: null },
+    instrument: { type: String, default: null },
+    instrumentDetail: { type: String, default: null },
+    paidAt: { type: Date, default: null },
+    refundId: { type: String, default: null },
+    refundedAt: { type: Date, default: null },
+    lastError: { type: String, default: null },
+  },
+  { _id: false },
+);
+
 const orderSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
@@ -42,6 +57,10 @@ const orderSchema = new Schema(
     items: { type: [orderItemSchema], required: true },
     totalAmount: { type: Number, required: true, min: 0 },
     status: { type: String, enum: ORDER_STATUSES, required: true, default: 'PENDING' },
+    // Unset on orders created by staff in the admin app.
+    paymentMethod: { type: String, enum: PAYMENT_METHODS },
+    paymentStatus: { type: String, enum: PAYMENT_STATUSES },
+    payment: { type: paymentSchema, default: undefined },
     notes: String,
     statusHistory: { type: [statusChangeSchema], default: [] },
     createdBy: { id: { type: Schema.Types.ObjectId, required: true }, name: String },
@@ -59,6 +78,16 @@ orderSchema.index({ organizationId: 1, orderNumber: 1 }, { unique: true });
 // Prefix search on customer name / email.
 orderSchema.index({ organizationId: 1, 'customer.nameLower': 1, createdAt: -1 });
 orderSchema.index({ organizationId: 1, 'customer.email': 1, createdAt: -1 });
+// Webhook / verification lookup; one Razorpay order belongs to exactly one order.
+orderSchema.index(
+  { 'payment.razorpayOrderId': 1 },
+  { unique: true, partialFilterExpression: { 'payment.razorpayOrderId': { $type: 'string' } } },
+);
+// Sweep of online orders whose payment never completed.
+orderSchema.index(
+  { createdAt: 1 },
+  { name: 'unpaid_online_orders', partialFilterExpression: { paymentMethod: 'RAZORPAY', paymentStatus: 'PENDING' } },
+);
 
 export type OrderDoc = InferSchemaType<typeof orderSchema>;
 export const Order = model('Order', orderSchema, 'orders');

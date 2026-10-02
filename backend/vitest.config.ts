@@ -7,7 +7,14 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    env: { NODE_ENV: 'test', AUTO_SEED: 'false' },
+    env: {
+      NODE_ENV: 'test',
+      AUTO_SEED: 'false',
+      // Fake credentials: the Razorpay HTTP client is mocked in tests, only the HMAC secrets are real.
+      RAZORPAY_KEY_ID: 'rzp_test_dummykey',
+      RAZORPAY_KEY_SECRET: 'test_key_secret',
+      RAZORPAY_WEBHOOK_SECRET: 'test_webhook_secret',
+    },
     globalSetup: ['./tests/global-setup.ts'],
     setupFiles: ['./tests/setup.ts'],
     testTimeout: 60_000,

@@ -1,6 +1,42 @@
-import { nextStatuses, type OrderDto, type OrderListItemDto, type OrderStatus } from '@shared';
+import {
+  allowedTransitions,
+  type OrderDto,
+  type OrderListItemDto,
+  type OrderPaymentDto,
+  type OrderStatus,
+  type PaymentMethod,
+  type PaymentStatus,
+} from '@shared';
 
-interface OrderLike {
+interface PaymentLike {
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
+  payment?: {
+    razorpayOrderId?: string | null;
+    razorpayPaymentId?: string | null;
+    instrument?: string | null;
+    instrumentDetail?: string | null;
+    paidAt?: Date | null;
+    refundedAt?: Date | null;
+  } | null;
+}
+
+export function toPaymentDto(o: PaymentLike): OrderPaymentDto | null {
+  if (!o.paymentMethod) return null;
+  const p = o.payment ?? {};
+  return {
+    method: o.paymentMethod as PaymentMethod,
+    status: (o.paymentStatus ?? 'PENDING') as PaymentStatus,
+    instrument: p.instrument ?? null,
+    instrumentDetail: p.instrumentDetail ?? null,
+    razorpayOrderId: p.razorpayOrderId ?? null,
+    razorpayPaymentId: p.razorpayPaymentId ?? null,
+    paidAt: p.paidAt ? new Date(p.paidAt).toISOString() : null,
+    refundedAt: p.refundedAt ? new Date(p.refundedAt).toISOString() : null,
+  };
+}
+
+interface OrderLike extends PaymentLike {
   _id: unknown;
   orderNumber: number;
   customer: { name: string; email: string };
@@ -22,6 +58,7 @@ interface OrderLike {
 
 export function toOrderDto(o: OrderLike): OrderDto {
   const status = o.status as OrderStatus;
+  const payment = toPaymentDto(o);
   return {
     id: String(o._id),
     orderNumber: o.orderNumber,
@@ -36,6 +73,7 @@ export function toOrderDto(o: OrderLike): OrderDto {
     })),
     totalAmount: o.totalAmount,
     status,
+    payment,
     ...(o.notes ? { notes: o.notes } : {}),
     statusHistory: (o.statusHistory ?? []).map((h) => ({
       from: (h.from ?? null) as OrderStatus | null,
@@ -44,14 +82,14 @@ export function toOrderDto(o: OrderLike): OrderDto {
       ...(h.reason ? { reason: h.reason } : {}),
       at: new Date(h.at).toISOString(),
     })),
-    allowedTransitions: [...nextStatuses(status)],
+    allowedTransitions: [...allowedTransitions(status, payment)],
     createdBy: { id: String(o.createdBy?.id ?? ''), name: o.createdBy?.name ?? 'Unknown' },
     createdAt: new Date(o.createdAt).toISOString(),
     updatedAt: new Date(o.updatedAt).toISOString(),
   };
 }
 
-export function toOrderListItemDto(o: {
+export function toOrderListItemDto(o: PaymentLike & {
   _id: unknown;
   orderNumber: number;
   customer: { name: string; email: string };
@@ -68,6 +106,13 @@ export function toOrderListItemDto(o: {
     itemCount: o.itemCount ?? (o.items ?? []).reduce((n, i) => n + i.quantity, 0),
     totalAmount: o.totalAmount,
     status: o.status as OrderStatus,
+    payment: o.paymentMethod
+      ? {
+          method: o.paymentMethod as PaymentMethod,
+          status: (o.paymentStatus ?? 'PENDING') as PaymentStatus,
+          instrument: o.payment?.instrument ?? null,
+        }
+      : null,
     createdAt: new Date(o.createdAt).toISOString(),
   };
 }

@@ -1,4 +1,4 @@
-import type { Customer, Order, PageMeta, Product, ShippingAddress, Store } from './types';
+import type { Customer, Order, PageMeta, PaymentMethod, Product, RazorpayCheckout, ShippingAddress, Store } from './types';
 
 const BASE = '/api/storefront';
 
@@ -89,7 +89,12 @@ export const api = {
   orders: (page = 1) => request<{ data: Order[]; meta: PageMeta }>(`/orders?page=${page}`),
   order: (id: string) => request<{ data: Order }>(`/orders/${encodeURIComponent(id)}`).then((r) => r.data),
   placeOrder: (
-    input: { items: { productId: string; quantity: number }[]; shipping: ShippingAddress; notes?: string },
+    input: {
+      items: { productId: string; quantity: number }[];
+      shipping: ShippingAddress;
+      notes?: string;
+      paymentMethod: PaymentMethod;
+    },
     idempotencyKey: string,
   ) =>
     request<{ data: Order }>('/orders', {
@@ -97,4 +102,12 @@ export const api = {
       body: json(input),
       headers: { 'Idempotency-Key': idempotencyKey },
     }).then((r) => r.data),
+
+  // online payments — the backend computes the amount and verifies every payment
+  startRazorpayPayment: (orderId: string) =>
+    request<{ data: RazorpayCheckout }>('/payments/razorpay/order', { method: 'POST', body: json({ orderId }) }).then((r) => r.data),
+  verifyRazorpayPayment: (input: { orderId: string; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    request<{ data: Order }>('/payments/razorpay/verify', { method: 'POST', body: json(input) }).then((r) => r.data),
+  reconcilePayment: (orderId: string) =>
+    request<{ data: Order }>('/payments/razorpay/reconcile', { method: 'POST', body: json({ orderId }) }).then((r) => r.data),
 };

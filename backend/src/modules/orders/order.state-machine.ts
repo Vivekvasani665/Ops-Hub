@@ -1,4 +1,4 @@
-import { canTransition, nextStatuses, type OrderStatus, type Permission } from '@shared';
+import { canTransition, nextStatuses, type OrderPaymentDto, type OrderStatus, type Permission } from '@shared';
 import { AppError } from '../../utils/errors';
 
 /**
@@ -11,6 +11,15 @@ export function assertTransition(from: OrderStatus, to: OrderStatus) {
       from,
       to,
       allowed: nextStatuses(from),
+    });
+  }
+}
+
+/** An online order only moves forward once the backend has verified its payment. */
+export function assertPaymentAllowsTransition(to: OrderStatus, payment: OrderPaymentDto | null) {
+  if (payment?.method === 'RAZORPAY' && payment.status !== 'PAID' && to !== 'CANCELLED') {
+    throw new AppError(409, 'PAYMENT_NOT_COMPLETED', 'This order is awaiting online payment and can only be cancelled', {
+      paymentStatus: payment.status,
     });
   }
 }

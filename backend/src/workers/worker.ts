@@ -4,6 +4,7 @@ import { env } from '../config/env';
 import { connectDatabase, disconnectDatabase } from '../config/database';
 import { logger } from '../utils/logger';
 import { processNextJob, scheduleDailyReports } from './job-processor';
+import { expireUnpaidOrders } from '../modules/payments/payment.service';
 
 /**
  * Standalone worker process. Run as many copies as you like: job claiming is an atomic
@@ -39,6 +40,14 @@ async function main() {
   await schedule();
   const timer = setInterval(schedule, 60 * 60 * 1000);
 
+  // Unpaid online orders: reconcile with Razorpay one last time, otherwise cancel and release stock.
+  // Safe on several workers at once: the cancel is a conditional status transition.
+  const sweepPayments = () =>
+    expireUnpaidOrders()
+      .then((n) => n && logger.info(`Cancelled ${n} unpaid online order(s)`))
+      .catch((err) => logger.error('Payment sweep failed', err));
+  const paymentTimer = setInterval(sweepPayments, 60 * 1000);
+
   const loops = Array.from({ length: env.WORKER_CONCURRENCY }, (_, i) => loop(i));
 
   const shutdown = async (signal: string) => {
@@ -46,6 +55,7 @@ async function main() {
     stopping = true;
     logger.info(`${signal} received, finishing in-flight jobs...`);
     clearInterval(timer);
+    clearInterval(paymentTimer);
     // In-flight jobs finish; anything interrupted is recovered via lease expiry by another worker.
     await Promise.race([Promise.all(loops), new Promise((r) => setTimeout(r, 10_000))]);
     await disconnectDatabase();

@@ -23,6 +23,7 @@ import { notificationRouter } from './modules/notifications/notification.routes'
 import { userRouter } from './modules/users/user.routes';
 import { organizationRouter } from './modules/organizations/organization.routes';
 import { storefrontRouter } from './modules/storefront/storefront.routes';
+import { paymentWebhookRouter } from './modules/payments/payment.webhook';
 
 /**
  * CSRF defence in depth on top of SameSite cookies: a state-changing request that declares an
@@ -42,6 +43,8 @@ export function createApp() {
 
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN, credentials: true }));
+  // Razorpay webhooks need the raw body for signature verification, so they are mounted before express.json.
+  app.use('/api/payments', paymentWebhookRouter);
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
   if (env.NODE_ENV !== 'test') app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));

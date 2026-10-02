@@ -1,6 +1,6 @@
 import { Router, type CookieOptions, type Request, type Response } from 'express';
 import { Types, type FilterQuery } from 'mongoose';
-import { env } from '../../config/env';
+import { env, razorpayEnabled } from '../../config/env';
 import { validateBody } from '../../middlewares/validation.middleware';
 import { idempotency } from '../../middlewares/idempotency.middleware';
 import { apiRateLimit, loginRateLimit } from '../../middlewares/rate-limit.middleware';
@@ -10,9 +10,19 @@ import { Inventory } from '../inventory/inventory.model';
 import { Product, type ProductDoc } from '../products/product.model';
 import { Order, type OrderDoc } from '../orders/order.model';
 import { createOrder } from '../orders/order.service';
+import { AppError } from '../../utils/errors';
+import { paymentSecondsLeft, reconcileOrderPayment, startRazorpayPayment, verifyCheckoutPayment } from '../payments/payment.service';
 import * as customerAuth from './customer-auth.service';
 import { authenticateCustomer, resolveStore } from './storefront.middleware';
-import { checkoutSchema, customerLoginSchema, registerCustomerSchema, type CheckoutInput } from './storefront.schemas';
+import {
+  checkoutSchema,
+  customerLoginSchema,
+  registerCustomerSchema,
+  startPaymentSchema,
+  verifyPaymentSchema,
+  type CheckoutInput,
+  type VerifyPaymentInput,
+} from './storefront.schemas';
 
 /**
  * Public API for the customer web storefront (`customer-web/`), mounted at /api/storefront.
@@ -57,7 +67,14 @@ function clearSession(res: Response) {
 // ---------- store ----------
 
 storefrontRouter.get('/store', (req, res) => {
-  res.json({ data: { name: req.store!.name, currency: req.store!.currency } });
+  res.json({
+    data: {
+      name: req.store!.name,
+      currency: req.store!.currency,
+      // Only the public key id ever leaves the server; the checkout uses the one returned per payment.
+      payments: { cod: true, online: razorpayEnabled },
+    },
+  });
 });
 
 // ---------- auth ----------
@@ -173,6 +190,21 @@ function toCustomerOrder(o: OrderDoc & { _id: unknown; createdAt: Date; updatedA
     })),
     itemCount: o.items.reduce((n, i) => n + i.quantity, 0),
     totalAmount: o.totalAmount,
+    payment: o.paymentMethod
+      ? {
+          method: o.paymentMethod,
+          status: o.paymentStatus ?? 'PENDING',
+          instrument: o.payment?.instrument ?? null,
+          instrumentDetail: o.payment?.instrumentDetail ?? null,
+          paidAt: o.payment?.paidAt ? new Date(o.payment.paidAt).toISOString() : null,
+          lastError: o.payment?.lastError ?? null,
+          // Seconds left to complete an online payment; 0 once the order no longer accepts one.
+          payableForSeconds:
+            o.paymentMethod === 'RAZORPAY' && o.paymentStatus === 'PENDING' && o.status === 'PENDING'
+              ? paymentSecondsLeft(new Date(o.createdAt))
+              : 0,
+        }
+      : null,
     notes: o.notes ?? null,
     timeline: (o.statusHistory ?? []).map((h) => ({ status: h.to, at: new Date(h.at).toISOString() })),
     createdAt: new Date(o.createdAt).toISOString(),
@@ -216,6 +248,9 @@ storefrontRouter.post(
   async (req: Request, res: Response) => {
     const body = req.body as CheckoutInput;
     const c = req.customer!;
+    if (body.paymentMethod === 'RAZORPAY' && !razorpayEnabled) {
+      throw new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Online payments are not available right now, choose cash on delivery');
+    }
     const created = await createOrder(
       {
         organizationId: req.tenantId!,
@@ -226,8 +261,41 @@ storefrontRouter.post(
       },
       // Customer identity comes from the session, never from the request body.
       { customer: { name: c.name, email: c.email }, items: body.items, notes: shippingNotes(body) },
+      // Totals always come from the database inside createOrder; the client only picks how to pay.
+      { paymentMethod: body.paymentMethod },
     );
     const order = await Order.findById(created.id).lean();
     res.status(201).json({ data: toCustomerOrder(order!) });
   },
 );
+
+// ---------- online payments (Razorpay) ----------
+
+/** Razorpay order for one of the customer's unpaid orders; called for the first attempt and every retry. */
+storefrontRouter.post('/payments/razorpay/order', authenticateCustomer, validateBody(startPaymentSchema), async (req, res) => {
+  const c = req.customer!;
+  const checkout = await startRazorpayPayment(req.tenantId!, c.id, new Types.ObjectId(req.body.orderId));
+  const profile = await customerAuth.getProfile(c.id);
+  res.json({
+    data: {
+      ...checkout,
+      storeName: req.store!.name,
+      prefill: { name: c.name, email: c.email, contact: profile.phone ?? undefined },
+    },
+  });
+});
+
+/** Checkout success callback; the order is marked paid only after server-side verification. */
+storefrontRouter.post('/payments/razorpay/verify', authenticateCustomer, validateBody(verifyPaymentSchema), async (req, res) => {
+  const order = await verifyCheckoutPayment(req.tenantId!, req.customer!.id, req.body as VerifyPaymentInput);
+  res.json({ data: toCustomerOrder(order!) });
+});
+
+/** "Did my payment go through?" — asks Razorpay directly, for when the checkout result never reached us. */
+storefrontRouter.post('/payments/razorpay/reconcile', authenticateCustomer, validateBody(startPaymentSchema), async (req, res) => {
+  const filter = { _id: new Types.ObjectId(req.body.orderId), ...ownOrders(req) };
+  const order = await Order.findOne(filter).lean();
+  if (!order) throw Errors.notFound('Order');
+  if (razorpayEnabled) await reconcileOrderPayment(order);
+  res.json({ data: toCustomerOrder((await Order.findOne(filter).lean())!) });
+});

@@ -8,7 +8,9 @@ import { useCart } from '@/context/cart';
 import { RequireAuth } from '@/components/RequireAuth';
 import { api, ApiError } from '@/lib/api';
 import { money, newIdempotencyKey } from '@/lib/format';
+import { payWithRazorpay, type PaymentStage } from '@/lib/razorpay';
 import type { ShippingAddress } from '@/lib/types';
+import { PaymentOptions, type PaymentChoice } from '@/components/PaymentOptions';
 import { Alert, Button, EmptyState, Field, Input, PageLoader, Textarea } from '@/components/ui';
 
 type Errors = Partial<Record<keyof ShippingAddress, string>>;
@@ -42,7 +44,22 @@ function CheckoutForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>('upi');
+  const [onlineAvailable, setOnlineAvailable] = useState(true);
+  const [stage, setStage] = useState<PaymentStage | 'placing' | null>(null);
   const placed = useRef(false);
+
+  useEffect(() => {
+    api.store().then(
+      (s) => {
+        setOnlineAvailable(s.payments.online);
+        if (!s.payments.online) setPaymentChoice('cod');
+      },
+      () => undefined,
+    );
+  }, []);
+
+  const online = paymentChoice !== 'cod';
 
   // One key per distinct cart: a double-click or network retry replays the same order instead of
   // creating a second one, while changing the cart starts a fresh attempt.
@@ -50,7 +67,7 @@ function CheckoutForm() {
   const idempotencyKey = useRef('');
   useEffect(() => {
     idempotencyKey.current = newIdempotencyKey();
-  }, [cartSignature]);
+  }, [cartSignature, online]);
 
   if (!ready) return <PageLoader />;
   if (lines.length === 0 && !placed.current) {
@@ -77,18 +94,27 @@ function CheckoutForm() {
     if (Object.keys(found).length) return;
 
     setSubmitting(true);
+    setStage('placing');
     try {
+      // The backend prices the order from the database and reserves stock; the cart only names products.
       const order = await api.placeOrder(
         {
           items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
           shipping: { ...shipping, line2: shipping.line2?.trim() || undefined },
           notes: notes.trim() || undefined,
+          paymentMethod: online ? 'RAZORPAY' : 'COD',
         },
         idempotencyKey.current,
       );
       placed.current = true;
       clear();
-      router.replace(`/orders/${order.id}?placed=1`);
+      if (!online) {
+        router.replace(`/orders/${order.id}?placed=1`);
+        return;
+      }
+      // The order exists now (awaiting payment); every outcome lands on its page, which offers retry.
+      const outcome = await payWithRazorpay(order.id, paymentChoice as Exclude<PaymentChoice, 'cod'>, setStage);
+      router.replace(outcome.kind === 'paid' ? `/orders/${order.id}?placed=1` : `/orders/${order.id}?payment=${outcome.kind}`);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === 'INSUFFICIENT_STOCK') {
@@ -100,6 +126,10 @@ function CheckoutForm() {
           setSubmitError('Your order is still being processed. Please wait a moment and try again.');
         } else if (err.status === 401) {
           router.replace('/login?next=/checkout');
+        } else if (err.code === 'PAYMENTS_UNAVAILABLE') {
+          setOnlineAvailable(false);
+          setPaymentChoice('cod');
+          setSubmitError(err.message);
         } else {
           setSubmitError(err.message);
         }
@@ -108,8 +138,20 @@ function CheckoutForm() {
       }
     } finally {
       setSubmitting(false);
+      setStage(null);
     }
   }
+
+  const busyLabel =
+    stage === 'placing'
+      ? 'Placing order…'
+      : stage === 'starting'
+        ? 'Loading payment…'
+        : stage === 'awaiting'
+          ? 'Complete payment in the Razorpay window…'
+          : stage === 'verifying'
+            ? 'Verifying payment…'
+            : null;
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid gap-8 lg:grid-cols-[1fr_360px]">
@@ -143,10 +185,13 @@ function CheckoutForm() {
         <Field label="Order note (optional)" htmlFor="notes">
           <Textarea id="notes" rows={3} maxLength={200} placeholder="Delivery instructions, landmark…" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
-        <p className="text-sm text-slate-500">Payment: cash on delivery.</p>
       </section>
 
-      <aside className="h-fit space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-start-1">
+        <PaymentOptions value={paymentChoice} onChange={setPaymentChoice} onlineAvailable={onlineAvailable} disabled={submitting} />
+      </section>
+
+      <aside className="h-fit space-y-4 rounded-2xl border border-slate-200 bg-white p-5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <h2 className="font-semibold">Order summary</h2>
         <ul className="space-y-2 text-sm">
           {lines.map((l) => (
@@ -163,9 +208,16 @@ function CheckoutForm() {
           <span className="tabular-nums">{money(subtotal)}</span>
         </div>
         <p className="text-xs text-slate-500">Final prices are confirmed by the store when the order is placed.</p>
+        <div className="flex justify-between text-sm text-slate-600">
+          <span>Payment</span>
+          <span className="font-medium text-slate-900">
+            {{ upi: 'UPI', card: 'Card', other: 'Digital payment', cod: 'Cash on delivery' }[paymentChoice]}
+          </span>
+        </div>
         {submitError && <Alert>{submitError}</Alert>}
+        {busyLabel && <Alert tone="info">{busyLabel}</Alert>}
         <Button type="submit" className="w-full" loading={submitting}>
-          Place order
+          {online ? `Pay ${money(subtotal)}` : `Place order – ${money(subtotal)}`}
         </Button>
         <Link href="/cart" className="block text-center text-sm text-slate-600 hover:text-slate-900">
           Back to cart

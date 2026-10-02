@@ -8,6 +8,13 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/** RAZORPAY covers every online method (UPI, UPI QR, cards, wallets, net banking). Staff-created orders have none. */
+export const PAYMENT_METHODS = ['RAZORPAY', 'COD'] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export const PAYMENT_STATUSES = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
 export const ROLES = ['SUPER_ADMIN', 'ORG_ADMIN', 'MANAGER', 'OPERATOR', 'VIEWER'] as const;
 export type Role = (typeof ROLES)[number];
 

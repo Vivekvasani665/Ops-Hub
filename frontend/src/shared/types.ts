@@ -5,6 +5,8 @@ import type {
   JobType,
   NotificationType,
   OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
   Role,
   StockStatus,
 } from './enums';
@@ -55,6 +57,20 @@ export interface OrderStatusChangeDto {
   at: string;
 }
 
+/** Payment of a storefront order; null on staff-created orders. */
+export interface OrderPaymentDto {
+  method: PaymentMethod;
+  status: PaymentStatus;
+  /** Instrument actually used at Razorpay: upi, card, wallet, netbanking, … */
+  instrument: string | null;
+  /** e.g. "Visa •••• 1111", "PhonePe", "name@okhdfc" */
+  instrumentDetail: string | null;
+  razorpayOrderId: string | null;
+  razorpayPaymentId: string | null;
+  paidAt: string | null;
+  refundedAt: string | null;
+}
+
 export interface OrderDto {
   id: string;
   orderNumber: number;
@@ -62,6 +78,7 @@ export interface OrderDto {
   items: OrderItemDto[];
   totalAmount: number;
   status: OrderStatus;
+  payment: OrderPaymentDto | null;
   notes?: string;
   statusHistory: OrderStatusChangeDto[];
   allowedTransitions: OrderStatus[];
@@ -77,6 +94,7 @@ export interface OrderListItemDto {
   itemCount: number;
   totalAmount: number;
   status: OrderStatus;
+  payment: Pick<OrderPaymentDto, 'method' | 'status' | 'instrument'> | null;
   createdAt: string;
 }
 

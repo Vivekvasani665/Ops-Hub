@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createOrderSchema } from '@shared';
+import { createOrderSchema, PAYMENT_METHODS } from '@shared';
 
 // Storefront-only request contracts. Kept out of `@shared` because that folder is mirrored into the admin app.
 
@@ -33,5 +33,19 @@ export const checkoutSchema = z.object({
     postalCode: z.string().trim().regex(/^[A-Za-z0-9\s-]{3,12}$/, 'Valid postal code required'),
   }),
   notes: z.string().trim().max(200).optional(),
+  /** RAZORPAY = UPI / UPI QR / card / wallet / net banking via Razorpay Checkout. */
+  paymentMethod: z.enum(PAYMENT_METHODS).default('COD'),
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id');
+
+export const startPaymentSchema = z.object({ orderId: objectId });
+
+export const verifyPaymentSchema = z.object({
+  orderId: objectId,
+  razorpay_order_id: z.string().trim().min(1).max(64),
+  razorpay_payment_id: z.string().trim().min(1).max(64),
+  razorpay_signature: z.string().trim().regex(/^[a-f0-9]{64}$/i, 'Invalid signature'),
+});
+export type VerifyPaymentInput = z.infer<typeof verifyPaymentSchema>;

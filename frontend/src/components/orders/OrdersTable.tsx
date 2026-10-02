@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { ArrowRight, Copy, Eye, MoreVertical, ShoppingCart } from 'lucide-react';
-import { nextStatuses, type OrderListItemDto } from '@/shared';
+import { allowedTransitions, type OrderListItemDto } from '@/shared';
 import { formatDateTime, formatMoney } from '@/lib/utils';
 import { TRANSITION_LABEL } from '@/lib/status';
 import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
@@ -11,10 +11,11 @@ import { TableSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { OrderStatusBadge } from './OrderStatusBadge';
+import { PaymentBadge } from './PaymentBadge';
 
 function RowActions({ order }: { order: OrderListItemDto }) {
   const navigate = useNavigate();
-  const next = nextStatuses(order.status);
+  const next = allowedTransitions(order.status, order.payment);
   return (
     <Dropdown
       className="w-52"
@@ -80,7 +81,7 @@ export function OrdersTable({
   emptyAction?: ReactNode;
   filtered?: boolean;
 }) {
-  if (isPending) return <TableSkeleton rows={5} cols={6} />;
+  if (isPending) return <TableSkeleton rows={5} cols={7} />;
   if (error) return <ErrorState error={error} onRetry={onRetry} />;
   if (!orders || orders.length === 0)
     return (
@@ -98,6 +99,7 @@ export function OrdersTable({
           <TH>Order #</TH>
           <TH>Customer</TH>
           <TH>Amount</TH>
+          <TH>Payment</TH>
           <TH>Status</TH>
           <TH>Created At</TH>
           <TH className="text-right">Actions</TH>
@@ -116,6 +118,9 @@ export function OrdersTable({
               <span className="block text-xs text-slate-400">{o.customer.email}</span>
             </TD>
             <TD className="text-slate-800">{formatMoney(o.totalAmount)}</TD>
+            <TD>
+              <PaymentBadge payment={o.payment} />
+            </TD>
             <TD>
               <OrderStatusBadge status={o.status} />
             </TD>
