@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      strictPort: true, // backend WEB_ORIGIN only allows 5173; fail loudly instead of drifting to 5174
       proxy: {
         '/api': { target: apiTarget, changeOrigin: true },
         '/socket.io': { target: apiTarget, ws: true, changeOrigin: true },
