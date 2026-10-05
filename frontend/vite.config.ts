@@ -20,7 +20,22 @@ export default defineConfig(({ mode }) => {
       // Allow Cloudflare quick tunnels (the subdomain changes on every `cloudflared tunnel` run).
       allowedHosts: ['.trycloudflare.com'],
       proxy: {
-        '/api': { target: apiTarget, changeOrigin: true },
+        '/api': {
+          target: apiTarget,
+          changeOrigin: true,
+          // The backend's CSRF guard only trusts origins in WEB_ORIGIN. A request that is genuinely
+          // same-origin with this dev server (e.g. via a Cloudflare tunnel URL) is rewritten to the
+          // local dev origin; real cross-origin requests keep their Origin and are still rejected.
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq, req) => {
+              const origin = req.headers.origin;
+              const host = req.headers['x-forwarded-host'] ?? req.headers.host;
+              if (origin && host && new URL(origin).host === host) {
+                proxyReq.setHeader('origin', `http://localhost:${Number(env.WEB_PORT) || 5173}`);
+              }
+            });
+          },
+        },
         '/socket.io': { target: apiTarget, ws: true, changeOrigin: true },
       },
     },
