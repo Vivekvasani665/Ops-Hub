@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   // This app is self-contained inside the monorepo; don't let Next pick up lockfiles further up.
   turbopack: { root: __dirname },
   agentRules: false,
+  // `next dev` blocks its dev resources (HMR websocket, /_next/*) for non-localhost origins, which stops the page
+  // from hydrating — products stay as skeletons. Allow Cloudflare Quick Tunnel hosts. Dev-only; ignored by `next start`.
+  allowedDevOrigins: ['*.trycloudflare.com'],
   reactStrictMode: true,
   poweredByHeader: false,
   async rewrites() {
