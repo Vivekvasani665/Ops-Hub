@@ -54,6 +54,10 @@ export function createApp() {
   if (env.NODE_ENV !== 'test') app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
   app.use('/api', originGuard);
 
+  app.get('/', (_req, res) => {
+    res.json({ success: true, message: 'OpsHub Backend API is running', port: env.API_PORT });
+  });
+
   app.get('/api/health', (_req, res) => {
     const up = mongoose.connection.readyState === 1;
     res.status(up ? 200 : 503).json({ data: { status: up ? 'ok' : 'degraded', db: up ? 'up' : 'down' } });
