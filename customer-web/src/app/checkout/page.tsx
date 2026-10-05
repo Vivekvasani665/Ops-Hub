@@ -143,7 +143,8 @@ function CheckoutForm() {
         } else if (err.code === 'PAYMENTS_UNAVAILABLE') {
           if (process.env.NODE_ENV !== 'production') {
             // details lists the missing PayU settings by name (the backend never sends their values).
-            console.error('[PayU] Payment initialization failed', { status: err.status, code: err.code, details: err.details });
+            // warn, not error: Next's dev overlay would pop up on console.error and print the object as {}.
+            console.warn(`[PayU] Payment initialization failed: ${err.status} ${err.code} ${JSON.stringify(err.details ?? null)}`);
           }
           setSubmitError('Unable to start PayU payment. Please try again, or choose Cash on Delivery.');
         } else {

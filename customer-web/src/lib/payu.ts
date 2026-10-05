@@ -19,7 +19,11 @@ export async function redirectToPayu(orderId: string): Promise<StartFailure> {
     checkout = await api.startPayuPayment(orderId);
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
-      console.error('[PayU] Payment initialization failed', err instanceof ApiError ? { status: err.status, code: err.code, message: err.message, details: err.details } : err);
+      console.warn(
+        err instanceof ApiError
+          ? `[PayU] Payment initialization failed: ${err.status} ${err.code} ${err.message} ${JSON.stringify(err.details ?? null)}`
+          : `[PayU] Payment initialization failed: ${String(err)}`,
+      );
     }
     if (err instanceof ApiError) {
       if (err.code === 'ALREADY_PAID') return 'already_paid';
