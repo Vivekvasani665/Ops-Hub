@@ -141,7 +141,11 @@ function CheckoutForm() {
         } else if (err.status === 401) {
           router.replace('/login?next=/checkout');
         } else if (err.code === 'PAYMENTS_UNAVAILABLE') {
-          setSubmitError('Unable to initialize payment. Please try again, or choose Cash on Delivery.');
+          if (process.env.NODE_ENV !== 'production') {
+            // details lists the missing PayU settings by name (the backend never sends their values).
+            console.error('[PayU] Payment initialization failed', { status: err.status, code: err.code, details: err.details });
+          }
+          setSubmitError('Unable to start PayU payment. Please try again, or choose Cash on Delivery.');
         } else {
           setSubmitError(err.message);
         }

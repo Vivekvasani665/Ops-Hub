@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { env, payuEnabled, payuUrls } from '../../config/env';
+import { env, payuEnabled, payuMissing, payuUrls } from '../../config/env';
 import { AppError } from '../../utils/errors';
 
 /**
@@ -40,7 +40,17 @@ export interface PayuTransaction {
   error_Message?: string;
 }
 
-const unavailable = () => new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Online payments are not available right now');
+/**
+ * PayU is not configured. Outside production the error names the missing settings (names only, never
+ * values) so a blank PAYU_MERCHANT_KEY / PAYU_SALT is obvious instead of a generic checkout failure.
+ */
+export const payuUnavailable = (message = 'Online payments are not available right now') =>
+  new AppError(
+    503,
+    'PAYMENTS_UNAVAILABLE',
+    message,
+    env.NODE_ENV === 'production' ? undefined : { reason: 'PAYU_NOT_CONFIGURED', missing: payuMissing },
+  );
 
 const sha512 = (s: string) => crypto.createHash('sha512').update(s, 'utf8').digest('hex');
 
@@ -87,7 +97,7 @@ export function isValidResponseHash(r: Record<string, string | undefined>) {
 
 /** Merchant postservice API: sha512(key|command|var1|SALT). */
 async function command<T>(cmd: string, vars: Record<string, string>): Promise<T> {
-  if (!payuEnabled) throw unavailable();
+  if (!payuEnabled) throw payuUnavailable();
   const body = new URLSearchParams({
     key: env.PAYU_MERCHANT_KEY!,
     command: cmd,

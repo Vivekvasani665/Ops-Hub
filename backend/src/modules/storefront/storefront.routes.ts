@@ -10,8 +10,8 @@ import { Inventory } from '../inventory/inventory.model';
 import { Product, type ProductDoc } from '../products/product.model';
 import { Order, type OrderDoc } from '../orders/order.model';
 import { createOrder } from '../orders/order.service';
-import { AppError } from '../../utils/errors';
 import { paymentSecondsLeft, reconcileOrderPayment, startPayuPayment } from '../payments/payment.service';
+import { payuUnavailable } from '../payments/payu.client';
 import * as customerAuth from './customer-auth.service';
 import { authenticateCustomer, resolveStore } from './storefront.middleware';
 import {
@@ -309,7 +309,7 @@ storefrontRouter.post(
     const body = req.body as CheckoutInput;
     const c = req.customer!;
     if (body.paymentMethod === 'ONLINE' && !payuEnabled) {
-      throw new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Online payments are not available right now, choose cash on delivery');
+      throw payuUnavailable('Online payments are not available right now, choose cash on delivery');
     }
     const created = await createOrder(
       {

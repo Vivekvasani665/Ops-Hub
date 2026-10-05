@@ -55,7 +55,10 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-export const payuEnabled = Boolean(env.PAYU_MERCHANT_KEY && env.PAYU_SALT && env.PAYU_SUCCESS_URL && env.PAYU_FAILURE_URL);
+/** Names (never values) of the PayU settings still unset; online payments stay off until this is empty. */
+export const payuMissing = (['PAYU_MERCHANT_KEY', 'PAYU_SALT', 'PAYU_SUCCESS_URL', 'PAYU_FAILURE_URL'] as const).filter((k) => !env[k]);
+
+export const payuEnabled = payuMissing.length === 0;
 
 export const payuUrls = {
   payment: env.PAYU_PAYMENT_URL ?? (env.PAYU_ENV === 'production' ? 'https://secure.payu.in/_payment' : 'https://test.payu.in/_payment'),

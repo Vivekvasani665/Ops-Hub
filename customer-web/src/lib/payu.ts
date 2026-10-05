@@ -18,6 +18,9 @@ export async function redirectToPayu(orderId: string): Promise<StartFailure> {
   try {
     checkout = await api.startPayuPayment(orderId);
   } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[PayU] Payment initialization failed', err instanceof ApiError ? { status: err.status, code: err.code, message: err.message, details: err.details } : err);
+    }
     if (err instanceof ApiError) {
       if (err.code === 'ALREADY_PAID') return 'already_paid';
       if (['PAYMENT_CLOSED', 'PAYMENT_WINDOW_EXPIRED', 'NOT_AN_ONLINE_ORDER'].includes(err.code)) return 'closed';

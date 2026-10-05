@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { Types } from 'mongoose';
 import { env, payuEnabled, payuUrls } from '../../config/env';
-import { AppError, Errors } from '../../utils/errors';
+import { Errors } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 import { withTransaction } from '../../utils/transaction';
 import { emitToOrg } from '../../realtime/emitter';
@@ -16,6 +16,7 @@ import {
   hashSafe,
   isValidResponseHash,
   payu,
+  payuUnavailable,
   requestHash,
   toPayuAmount,
   type PayuRequestFields,
@@ -85,7 +86,7 @@ export async function startPayuPayment(
   customer: { id: Types.ObjectId; name: string; email: string; phone?: string | null },
   orderId: Types.ObjectId,
 ): Promise<{ action: string; fields: PayuRequestFields }> {
-  if (!payuEnabled) throw new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Online payments are not available right now');
+  if (!payuEnabled) throw payuUnavailable();
   const order = await findOrder({ _id: orderId, organizationId: orgId, 'createdBy.id': customer.id });
   if (!order) throw Errors.notFound('Order');
   assertAwaitingPayment(order);
@@ -114,6 +115,13 @@ export async function startPayuPayment(
     udf4: '',
     udf5: '',
   };
+  const hash = requestHash(base);
+  if (env.NODE_ENV === 'development') {
+    // Never the salt, key or hash itself: only what helps match an attempt against PayU's dashboard.
+    logger.info(
+      `[PayU] txnid: ${txnid} · amount: ${base.amount} · productinfo: ${base.productinfo} · environment: ${env.PAYU_ENV} · action: ${payuUrls.payment} · hash generated: ${hash.length === 128}`,
+    );
+  }
   return {
     action: payuUrls.payment,
     fields: {
@@ -121,7 +129,7 @@ export async function startPayuPayment(
       phone: phoneFor(customer.phone, order.notes),
       surl: env.PAYU_SUCCESS_URL!,
       furl: env.PAYU_FAILURE_URL!,
-      hash: requestHash(base),
+      hash,
     },
   };
 }
