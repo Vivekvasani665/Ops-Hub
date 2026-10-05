@@ -37,21 +37,21 @@ function Tracking({ order }: { order: Order }) {
               <span
                 className={cx(
                   'absolute top-8 bottom-0 left-[15px] w-0.5 sm:top-[15px] sm:right-[-50%] sm:bottom-auto sm:left-1/2 sm:h-0.5 sm:w-auto',
-                  nextDone ? (steps[i + 1]?.status === 'CANCELLED' ? 'bg-rose-300' : 'bg-emerald-500') : 'bg-slate-200',
+                  nextDone ? (steps[i + 1]?.status === 'CANCELLED' ? 'bg-danger/50' : 'bg-success') : 'bg-surface-3',
                 )}
               />
             )}
             <span
               className={cx(
-                'relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full ring-4 ring-white',
-                isCancel ? 'bg-rose-500 text-white' : done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400',
+                'relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full ring-4 ring-surface',
+                isCancel ? 'bg-danger text-white dark:text-slate-950' : done ? 'bg-success text-white dark:text-slate-950' : 'bg-surface-3 text-subtle',
               )}
             >
               {isCancel ? <X className="size-4" /> : done ? <Check className="size-4" /> : <span className="size-2 rounded-full bg-current" />}
             </span>
             <span>
-              <span className={cx('block text-sm font-semibold', done ? 'text-slate-900' : 'text-slate-400')}>{STATUS_LABEL[status]}</span>
-              <span className="block text-xs text-slate-500">{reachedAt.get(status) ? dateTime(reachedAt.get(status)!) : done ? '' : 'Pending'}</span>
+              <span className={cx('block text-sm font-semibold', done ? 'text-fg' : 'text-subtle')}>{STATUS_LABEL[status]}</span>
+              <span className="block text-xs text-muted">{reachedAt.get(status) ? dateTime(reachedAt.get(status)!) : done ? '' : 'Pending'}</span>
             </span>
           </li>
         );
@@ -122,17 +122,17 @@ function PayNow({ order, onOrder, initialOutcome }: { order: Order; onOrder: (o:
   const retry = message?.title === 'Payment Failed' || initialOutcome === 'cancelled' || initialOutcome === 'init_failed';
 
   return (
-    <section className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
+    <section className="space-y-4 rounded-2xl border border-warning/30 bg-warning-soft/50 p-5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-semibold">{message?.title ?? 'Complete your payment'}</h2>
         {!expired && (
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-fg-2">
             Order held for <span className="font-medium tabular-nums">{countdown(secondsLeft)}</span>
           </p>
         )}
       </div>
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
-      {order.payment?.lastError && message?.title === 'Payment Failed' && <p className="text-xs text-slate-500">Reason: {order.payment.lastError}</p>}
+      {order.payment?.lastError && message?.title === 'Payment Failed' && <p className="text-xs text-muted">Reason: {order.payment.lastError}</p>}
       {expired ? (
         <Alert>The payment window has closed. This order will be cancelled and its items released.</Alert>
       ) : (
@@ -198,37 +198,37 @@ function OrderDetail() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link href="/orders" className="mb-2 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+          <Link href="/orders" className="mb-2 inline-flex items-center gap-1 text-sm text-muted hover:text-fg">
             <ArrowLeft className="size-4" /> My Orders
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">Order #{order.orderNumber}</h1>
-          <p className="text-sm text-slate-500">Placed {dateTime(order.createdAt)}</p>
+          <p className="text-sm text-muted">Placed {dateTime(order.createdAt)}</p>
         </div>
         <StatusBadge status={order.status} />
       </div>
 
       {payment && payment.payableForSeconds > 0 && <PayNow order={order} onOrder={setOrder} initialOutcome={outcome} />}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+      <section className="rounded-2xl border border-line bg-surface p-5 sm:p-6">
         <Tracking order={order} />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="rounded-2xl border border-slate-200 bg-white">
-          <h2 className="border-b border-slate-100 px-5 py-4 font-semibold">Items ({order.itemCount})</h2>
-          <ul className="divide-y divide-slate-100">
+        <section className="rounded-2xl border border-line bg-surface">
+          <h2 className="border-b border-line px-5 py-4 font-semibold">Items ({order.itemCount})</h2>
+          <ul className="divide-y divide-line">
             {order.items.map((i) => {
               const m = media.get(i.productId);
               return (
                 <li key={i.productId} className="flex items-center gap-4 px-5 py-4">
-                  <Link href={`/products/${i.productId}`} className="shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                  <Link href={`/products/${i.productId}`} className="shrink-0 overflow-hidden rounded-xl bg-surface-2">
                     <ProductImage src={m?.imageUrl} name={i.name} category={m?.category ?? ''} width={160} className="size-16" />
                   </Link>
                   <div className="min-w-0 flex-1">
-                    <Link href={`/products/${i.productId}`} className="line-clamp-1 font-medium hover:text-blue-600">
+                    <Link href={`/products/${i.productId}`} className="line-clamp-1 font-medium hover:text-primary">
                       {i.name}
                     </Link>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-muted">
                       {money(i.unitPrice)} × {i.quantity}
                     </p>
                   </div>
@@ -240,18 +240,18 @@ function OrderDetail() {
         </section>
 
         <div className="space-y-6">
-          <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+          <section className="space-y-3 rounded-2xl border border-line bg-surface p-5">
             <h2 className="font-semibold">Order Summary</h2>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-slate-500">Subtotal</dt>
+                <dt className="text-muted">Subtotal</dt>
                 <dd className="tabular-nums">{money(order.totalAmount)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Shipping</dt>
-                <dd className="font-medium text-emerald-600">Free</dd>
+                <dt className="text-muted">Shipping</dt>
+                <dd className="font-medium text-success">Free</dd>
               </div>
-              <div className="flex justify-between border-t border-slate-100 pt-2.5 text-base font-bold">
+              <div className="flex justify-between border-t border-line pt-2.5 text-base font-bold">
                 <dt>Total</dt>
                 <dd className="tabular-nums">{money(order.totalAmount)}</dd>
               </div>
@@ -259,32 +259,32 @@ function OrderDetail() {
           </section>
 
           {payment && (
-            <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm">
+            <section className="space-y-2 rounded-2xl border border-line bg-surface p-5 text-sm">
               <h2 className="font-semibold">Payment Method</h2>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-slate-600">{paymentMethodLabel(payment)}</span>
+                <span className="text-fg-2">{paymentMethodLabel(payment)}</span>
                 <span
                   className={cx(
                     'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                    payment.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700',
+                    payment.status === 'PAID' ? 'bg-success-soft text-success' : payment.status === 'PENDING' ? 'bg-warning-soft text-warning' : 'bg-danger-soft text-danger',
                   )}
                 >
                   {payment.method === 'COD' && payment.status === 'PENDING' ? 'Pay on delivery' : PAYMENT_STATUS_LABEL[payment.status]}
                 </span>
               </div>
-              {payment.paidAt && <p className="text-xs text-slate-400">Paid {dateTime(payment.paidAt)}</p>}
-              {payment.status === 'REFUNDED' && <p className="text-xs text-slate-500">The amount has been refunded to your original payment method.</p>}
+              {payment.paidAt && <p className="text-xs text-subtle">Paid {dateTime(payment.paidAt)}</p>}
+              {payment.status === 'REFUNDED' && <p className="text-xs text-muted">The amount has been refunded to your original payment method.</p>}
             </section>
           )}
 
           {shipTo && (
-            <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm">
+            <section className="space-y-2 rounded-2xl border border-line bg-surface p-5 text-sm">
               <h2 className="flex items-center gap-2 font-semibold">
-                <MapPin className="size-4 text-slate-400" /> Shipping Address
+                <MapPin className="size-4 text-subtle" /> Shipping Address
               </h2>
-              <p className="text-slate-600">{shipTo[1]}</p>
-              {shipTo[2] && <p className="text-slate-500">Phone: {shipTo[2]}</p>}
-              {note && <p className="border-t border-slate-100 pt-2 text-slate-500">Note: {note}</p>}
+              <p className="text-fg-2">{shipTo[1]}</p>
+              {shipTo[2] && <p className="text-muted">Phone: {shipTo[2]}</p>}
+              {note && <p className="border-t border-line pt-2 text-muted">Note: {note}</p>}
             </section>
           )}
         </div>

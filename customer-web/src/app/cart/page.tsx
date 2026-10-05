@@ -38,7 +38,7 @@ export default function CartPage() {
         title="Your cart is empty"
         body="Browse the shop and add something you like."
         action={
-          <Link href="/products" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+          <Link href="/products" className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-fg hover:bg-primary-hover">
             <ShoppingCart className="size-4" /> Start shopping
           </Link>
         }
@@ -58,33 +58,33 @@ export default function CartPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">
-          Shopping Cart <span className="text-base font-normal text-slate-400">({count} item{count === 1 ? '' : 's'})</span>
+          Shopping Cart <span className="text-base font-normal text-subtle">({count} item{count === 1 ? '' : 's'})</span>
         </h1>
         <CheckoutSteps current={0} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
+        <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {lines.map((l) => {
             const p = live?.get(l.productId);
             const max = p ? Math.max(p.available, l.quantity) : l.quantity;
             const issue = live && (!p ? 'No longer available' : !p.inStock ? 'Out of stock' : l.quantity > p.available ? `Only ${p.available} available` : null);
             return (
               <li key={l.productId} className="flex gap-4 p-4 sm:p-5">
-                <Link href={`/products/${l.productId}`} className="shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                <Link href={`/products/${l.productId}`} className="shrink-0 overflow-hidden rounded-xl bg-surface-2">
                   <ProductImage src={p?.imageUrl ?? l.imageUrl} name={l.name} category={p?.category ?? l.category ?? ''} width={200} className="size-20 sm:size-24" />
                 </Link>
                 <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 sm:flex-row sm:items-center">
                   <div className="min-w-0">
-                    <Link href={`/products/${l.productId}`} className="line-clamp-2 font-semibold hover:text-blue-600">
+                    <Link href={`/products/${l.productId}`} className="line-clamp-2 font-semibold hover:text-primary">
                       {l.name}
                     </Link>
-                    <p className="text-sm text-slate-500">{money(l.price)} each</p>
-                    {issue && <p className="mt-1 text-sm font-medium text-rose-600">{issue}</p>}
+                    <p className="text-sm text-muted">{money(l.price)} each</p>
+                    {issue && <p className="mt-1 text-sm font-medium text-danger">{issue}</p>}
                   </div>
                   <div className="flex items-center justify-between gap-4 sm:justify-end">
-                    <div className="flex items-center rounded-lg ring-1 ring-slate-300">
-                      <button type="button" aria-label={`Decrease ${l.name}`} className="p-2 text-slate-600 hover:text-slate-900" onClick={() => setQuantity(l.productId, l.quantity - 1)}>
+                    <div className="flex items-center rounded-xl ring-1 ring-line-2">
+                      <button type="button" aria-label={`Decrease ${l.name}`} className="p-2 text-fg-2 hover:text-fg" onClick={() => setQuantity(l.productId, l.quantity - 1)}>
                         <Minus className="size-3.5" />
                       </button>
                       <span className="w-8 text-center text-sm font-semibold tabular-nums" aria-live="polite">
@@ -93,7 +93,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         aria-label={`Increase ${l.name}`}
-                        className="p-2 text-slate-600 hover:text-slate-900 disabled:text-slate-300"
+                        className="p-2 text-fg-2 hover:text-fg disabled:text-subtle"
                         disabled={l.quantity >= max}
                         onClick={() => setQuantity(l.productId, l.quantity + 1)}
                       >
@@ -101,7 +101,7 @@ export default function CartPage() {
                       </button>
                     </div>
                     <p className="w-24 text-right font-bold tabular-nums">{money(l.price * l.quantity)}</p>
-                    <button type="button" onClick={() => remove(l.productId)} aria-label={`Remove ${l.name}`} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                    <button type="button" onClick={() => remove(l.productId)} aria-label={`Remove ${l.name}`} className="rounded-xl p-2 text-subtle hover:bg-danger-soft hover:text-danger">
                       <Trash2 className="size-4" />
                     </button>
                   </div>
@@ -111,18 +111,18 @@ export default function CartPage() {
           })}
         </ul>
 
-        <aside className="h-fit space-y-4 rounded-2xl border border-slate-200 bg-white p-5 lg:sticky lg:top-24">
+        <aside className="h-fit space-y-4 rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-24">
           <h2 className="text-lg font-semibold">Order Summary</h2>
           <dl className="space-y-2.5 text-sm">
             <div className="flex justify-between">
-              <dt className="text-slate-500">Subtotal</dt>
+              <dt className="text-muted">Subtotal</dt>
               <dd className="tabular-nums">{money(subtotal)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500">Shipping</dt>
-              <dd className="font-medium text-emerald-600">Free</dd>
+              <dt className="text-muted">Shipping</dt>
+              <dd className="font-medium text-success">Free</dd>
             </div>
-            <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold">
+            <div className="flex justify-between border-t border-line pt-3 text-base font-bold">
               <dt>Total</dt>
               <dd className="tabular-nums">{money(subtotal)}</dd>
             </div>
@@ -132,18 +132,18 @@ export default function CartPage() {
             href={customer ? '/checkout' : '/login?next=/checkout'}
             aria-disabled={blocked}
             className={cx(
-              'flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white',
-              blocked ? 'pointer-events-none bg-blue-300' : 'bg-blue-600 hover:bg-blue-700',
+              'flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-primary-fg',
+              blocked ? 'pointer-events-none bg-primary/50' : 'bg-primary hover:bg-primary-hover',
             )}
           >
             {customer ? 'Proceed to Checkout' : 'Sign in to Checkout'} <ArrowRight className="size-4" />
           </Link>
-          <Link href="/products" className="block text-center text-sm font-medium text-slate-600 hover:text-slate-900">
+          <Link href="/products" className="block text-center text-sm font-medium text-fg-2 hover:text-fg">
             Continue shopping
           </Link>
-          <div className="space-y-2 border-t border-slate-100 pt-4">
-            <p className="flex items-center gap-2 text-xs text-slate-500">
-              <ShieldCheck className="size-4 text-emerald-600" /> Secure checkout powered by PayU
+          <div className="space-y-2 border-t border-line pt-4">
+            <p className="flex items-center gap-2 text-xs text-muted">
+              <ShieldCheck className="size-4 text-success" /> Secure checkout powered by PayU
             </p>
             <PaymentMarks />
           </div>

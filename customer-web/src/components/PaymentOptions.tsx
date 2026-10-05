@@ -37,7 +37,7 @@ export function PaymentOptions({
             key={v}
             className={cx(
               'flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors',
-              selected ? 'border-blue-600 bg-blue-50/60 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300',
+              selected ? 'border-primary bg-primary-soft/60 ring-1 ring-primary' : 'border-line hover:border-line-2',
             )}
           >
             <input
@@ -46,13 +46,13 @@ export function PaymentOptions({
               value={v}
               checked={selected}
               onChange={() => onChange(v)}
-              className="size-4 shrink-0 accent-blue-600"
+              className="size-4 shrink-0 accent-primary"
             />
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-900">{title}</span>
-              <span className="block truncate text-xs text-slate-500">{body}</span>
+              <span className="block text-sm font-semibold text-fg">{title}</span>
+              <span className="block truncate text-xs text-muted">{body}</span>
             </span>
-            <Icon className={cx('size-5 shrink-0', selected ? 'text-blue-600' : 'text-slate-400')} />
+            <Icon className={cx('size-5 shrink-0', selected ? 'text-primary' : 'text-subtle')} />
           </label>
         );
       })}

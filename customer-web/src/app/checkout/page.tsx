@@ -83,7 +83,7 @@ function CheckoutForm() {
         title="Nothing to check out"
         body="Your cart is empty."
         action={
-          <Link href="/products" className="inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+          <Link href="/products" className="inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-fg hover:bg-primary-hover">
             Browse products
           </Link>
         }
@@ -161,14 +161,14 @@ function CheckoutForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid gap-6 lg:grid-cols-[1fr_400px]">
-      <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+      <section className="space-y-5 rounded-2xl border border-line bg-surface p-5 sm:p-6">
         <h2 className="text-lg font-semibold">Shipping Information</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Full name" htmlFor="fullName" error={errors.fullName}>
             <Input id="fullName" autoComplete="name" placeholder="John Doe" value={shipping.fullName} onChange={set('fullName')} invalid={!!errors.fullName} />
           </Field>
           <Field label="Email" htmlFor="email">
-            <Input id="email" type="email" value={customer?.email ?? ''} readOnly className="bg-slate-50 text-slate-500" />
+            <Input id="email" type="email" value={customer?.email ?? ''} readOnly className="bg-surface-2 text-muted" />
           </Field>
         </div>
         <Field label="Phone" htmlFor="phone" error={errors.phone}>
@@ -191,7 +191,7 @@ function CheckoutForm() {
               value={shipping.state}
               onChange={set('state')}
               aria-invalid={!!errors.state || undefined}
-              className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm focus:ring-2 focus:outline-none ${errors.state ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'}`}
+              className={`w-full rounded-xl border bg-surface px-3 py-2.5 text-sm focus:ring-2 focus:outline-none ${errors.state ? 'border-danger focus:ring-danger/25' : 'border-line-2 focus:border-primary focus:ring-primary/15'}`}
             >
               <option value="">Select state</option>
               {STATES.map((s) => (
@@ -200,7 +200,7 @@ function CheckoutForm() {
             </select>
           </Field>
           <Field label="Country" htmlFor="country">
-            <Input id="country" value="India" readOnly className="bg-slate-50 text-slate-500" />
+            <Input id="country" value="India" readOnly className="bg-surface-2 text-muted" />
           </Field>
           <Field label="PIN code" htmlFor="postalCode" error={errors.postalCode}>
             <Input id="postalCode" autoComplete="postal-code" inputMode="numeric" placeholder="380001" value={shipping.postalCode} onChange={set('postalCode')} invalid={!!errors.postalCode} />
@@ -211,17 +211,17 @@ function CheckoutForm() {
         </Field>
       </section>
 
-      <aside className="h-fit space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 lg:sticky lg:top-24">
+      <aside className="h-fit space-y-5 rounded-2xl border border-line bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
         <h2 className="text-lg font-semibold">Order Summary</h2>
         <ul className="max-h-64 space-y-3 overflow-y-auto pr-1">
           {lines.map((l) => (
             <li key={l.productId} className="flex items-center gap-3 text-sm">
-              <div className="shrink-0 overflow-hidden rounded-lg bg-slate-100">
+              <div className="shrink-0 overflow-hidden rounded-xl bg-surface-2">
                 <ProductImage src={l.imageUrl} name={l.name} category={l.category ?? ''} width={120} className="size-12" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{l.name}</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted">
                   {money(l.price)} × {l.quantity}
                 </p>
               </div>
@@ -229,16 +229,16 @@ function CheckoutForm() {
             </li>
           ))}
         </ul>
-        <dl className="space-y-2 border-t border-slate-100 pt-4 text-sm">
+        <dl className="space-y-2 border-t border-line pt-4 text-sm">
           <div className="flex justify-between">
-            <dt className="text-slate-500">Subtotal</dt>
+            <dt className="text-muted">Subtotal</dt>
             <dd className="tabular-nums">{money(subtotal)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-slate-500">Shipping</dt>
-            <dd className="font-medium text-emerald-600">Free</dd>
+            <dt className="text-muted">Shipping</dt>
+            <dd className="font-medium text-success">Free</dd>
           </div>
-          <div className="flex justify-between border-t border-slate-100 pt-3 text-base font-bold">
+          <div className="flex justify-between border-t border-line pt-3 text-base font-bold">
             <dt>Total</dt>
             <dd className="tabular-nums">{money(subtotal)}</dd>
           </div>
@@ -253,12 +253,12 @@ function CheckoutForm() {
           {!submitting && <Lock className="size-4" />}
           {online ? `Pay ${money(subtotal)}` : `Place Order – ${money(subtotal)}`}
         </Button>
-        <p className="-mt-2 text-center text-xs text-slate-500">
-          Paying with <span className="font-medium text-slate-700">{PAYMENT_CHOICE_LABEL[paymentChoice]}</span>. Final amount is confirmed by the store.
+        <p className="-mt-2 text-center text-xs text-muted">
+          Paying with <span className="font-medium text-fg-2">{PAYMENT_CHOICE_LABEL[paymentChoice]}</span>. Final amount is confirmed by the store.
         </p>
-        <div className="space-y-2 border-t border-slate-100 pt-4">
-          <p className="flex items-center gap-2 text-xs text-slate-500">
-            <ShieldCheck className="size-4 shrink-0 text-emerald-600" />
+        <div className="space-y-2 border-t border-line pt-4">
+          <p className="flex items-center gap-2 text-xs text-muted">
+            <ShieldCheck className="size-4 shrink-0 text-success" />
             Your payment information is safe and secure with PayU.
           </p>
           <PaymentMarks />

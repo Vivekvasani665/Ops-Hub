@@ -21,12 +21,12 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
 };
 
 export const STATUS_STYLE: Record<OrderStatus, string> = {
-  PENDING: 'bg-amber-50 text-amber-700 ring-amber-200',
-  CONFIRMED: 'bg-sky-50 text-sky-700 ring-sky-200',
-  PROCESSING: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
-  SHIPPED: 'bg-violet-50 text-violet-700 ring-violet-200',
-  DELIVERED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  CANCELLED: 'bg-rose-50 text-rose-700 ring-rose-200',
+  PENDING: 'bg-warning-soft text-warning ring-warning/25',
+  CONFIRMED: 'bg-info-soft text-info ring-info/25',
+  PROCESSING: 'bg-primary-soft text-primary-soft-fg ring-primary/25',
+  SHIPPED: 'bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:ring-violet-500/30',
+  DELIVERED: 'bg-success-soft text-success ring-success/25',
+  CANCELLED: 'bg-danger-soft text-danger ring-danger/25',
 };
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {

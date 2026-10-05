@@ -36,7 +36,7 @@ export default function ProductPage() {
 
   if (error) {
     return error instanceof ApiError && error.status === 404 ? (
-      <EmptyState title="Product not found" action={<Link href="/products" className="text-sm font-medium text-blue-600 underline">Browse products</Link>} />
+      <EmptyState title="Product not found" action={<Link href="/products" className="text-sm font-medium text-primary underline">Browse products</Link>} />
     ) : (
       <Alert>Could not load product: {error.message}</Alert>
     );
@@ -57,56 +57,56 @@ export default function ProductPage() {
 
   return (
     <div className="space-y-8">
-      <nav className="flex items-center gap-1 text-sm text-slate-500" aria-label="Breadcrumb">
-        <Link href="/" className="hover:text-slate-900">Home</Link>
+      <nav className="flex items-center gap-1 text-sm text-muted" aria-label="Breadcrumb">
+        <Link href="/" className="hover:text-fg">Home</Link>
         <ChevronRight className="size-4" />
-        <Link href={`/products?category=${encodeURIComponent(product.category)}`} className="hover:text-slate-900">
+        <Link href={`/products?category=${encodeURIComponent(product.category)}`} className="hover:text-fg">
           {product.category}
         </Link>
         <ChevronRight className="size-4" />
-        <span className="truncate text-slate-900">{product.name}</span>
+        <span className="truncate text-fg">{product.name}</span>
       </nav>
 
-      <div className="grid gap-8 rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 md:grid-cols-2 lg:gap-12">
-        <div className="overflow-hidden rounded-2xl bg-slate-100">
+      <div className="grid gap-8 rounded-3xl border border-line bg-surface p-4 sm:p-6 md:grid-cols-2 lg:gap-12">
+        <div className="overflow-hidden rounded-2xl bg-surface-2">
           <ProductImage src={product.imageUrl} name={product.name} category={product.category} width={1000} className="aspect-square w-full" />
         </div>
 
         <div className="flex flex-col">
-          <p className="text-sm font-medium tracking-wide text-blue-600 uppercase">{product.category}</p>
+          <p className="text-sm font-medium tracking-wide text-primary uppercase">{product.category}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{product.name}</h1>
-          <p className="mt-1 text-sm text-slate-400">SKU {product.sku}</p>
+          <p className="mt-1 text-sm text-subtle">SKU {product.sku}</p>
 
           <p className="mt-5 text-3xl font-bold">{money(product.price)}</p>
-          <p className="text-xs text-slate-500">Inclusive of all taxes · Free shipping</p>
+          <p className="text-xs text-muted">Inclusive of all taxes · Free shipping</p>
 
           <span
             className={cx(
               'mt-4 w-fit rounded-md px-2.5 py-1 text-xs font-semibold',
-              product.inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
+              product.inStock ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger',
             )}
           >
             {product.inStock ? (product.available <= 5 ? `Only ${product.available} left` : 'In Stock') : 'Out of Stock'}
           </span>
 
-          {product.description && <p className="mt-5 leading-relaxed text-slate-600">{product.description}</p>}
+          {product.description && <p className="mt-5 leading-relaxed text-fg-2">{product.description}</p>}
 
           {product.inStock && (
             <div className="mt-6 space-y-4">
               <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-slate-700">Quantity</span>
-                <div className="flex items-center rounded-lg ring-1 ring-slate-300">
-                  <button type="button" aria-label="Decrease quantity" className="p-2.5 text-slate-600 hover:text-slate-900 disabled:text-slate-300" disabled={qty <= 1} onClick={() => setQty((q) => q - 1)}>
+                <span className="text-sm font-medium text-fg-2">Quantity</span>
+                <div className="flex items-center rounded-xl ring-1 ring-line-2">
+                  <button type="button" aria-label="Decrease quantity" className="p-2.5 text-fg-2 hover:text-fg disabled:text-subtle" disabled={qty <= 1} onClick={() => setQty((q) => q - 1)}>
                     <Minus className="size-4" />
                   </button>
                   <span className="w-10 text-center text-sm font-semibold tabular-nums" aria-live="polite">
                     {qty}
                   </span>
-                  <button type="button" aria-label="Increase quantity" className="p-2.5 text-slate-600 hover:text-slate-900 disabled:text-slate-300" disabled={qty >= Math.min(10, remaining)} onClick={() => setQty((q) => q + 1)}>
+                  <button type="button" aria-label="Increase quantity" className="p-2.5 text-fg-2 hover:text-fg disabled:text-subtle" disabled={qty >= Math.min(10, remaining)} onClick={() => setQty((q) => q + 1)}>
                     <Plus className="size-4" />
                   </button>
                 </div>
-                {inCart > 0 && <span className="text-sm text-slate-500">{inCart} in cart</span>}
+                {inCart > 0 && <span className="text-sm text-muted">{inCart} in cart</span>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Button
@@ -123,7 +123,6 @@ export default function ProductPage() {
                   <ShoppingCart className="size-4" /> {remaining === 0 ? 'All stock in cart' : added ? 'Added to cart' : 'Add to Cart'}
                 </Button>
                 <Button
-                  variant="dark"
                   className="py-3"
                   disabled={remaining === 0 && inCart === 0}
                   onClick={() => {
@@ -138,14 +137,14 @@ export default function ProductPage() {
           )}
           {!product.inStock && <StockNote product={product} className="mt-6 text-sm" />}
 
-          <div className="mt-8 border-t border-slate-100 pt-6">
+          <div className="mt-8 border-t border-line pt-6">
             <FeatureStrip compact />
           </div>
         </div>
       </div>
 
-      <section className="rounded-3xl border border-slate-200 bg-white">
-        <div className="flex gap-6 border-b border-slate-200 px-6" role="tablist">
+      <section className="rounded-3xl border border-line bg-surface">
+        <div className="flex gap-6 border-b border-line px-6" role="tablist">
           {(
             [
               ['specs', 'Specifications'],
@@ -158,7 +157,7 @@ export default function ProductPage() {
               role="tab"
               aria-selected={tab === value}
               onClick={() => setTab(value)}
-              className={cx('-mb-px border-b-2 py-4 text-sm font-semibold', tab === value ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-900')}
+              className={cx('-mb-px border-b-2 py-4 text-sm font-semibold', tab === value ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-fg')}
             >
               {label}
             </button>
@@ -166,16 +165,16 @@ export default function ProductPage() {
         </div>
         <div className="p-6">
           {tab === 'specs' ? (
-            <dl className="divide-y divide-slate-100 text-sm">
+            <dl className="divide-y divide-line text-sm">
               {specs.map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[140px_1fr] gap-4 py-3">
-                  <dt className="text-slate-500">{k}</dt>
-                  <dd className="text-slate-900">{v}</dd>
+                  <dt className="text-muted">{k}</dt>
+                  <dd className="text-fg">{v}</dd>
                 </div>
               ))}
             </dl>
           ) : related.length === 0 ? (
-            <p className="text-sm text-slate-500">No other products in this category yet.</p>
+            <p className="text-sm text-muted">No other products in this category yet.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               {related.map((p) => (

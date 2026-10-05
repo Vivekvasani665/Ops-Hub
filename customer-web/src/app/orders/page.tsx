@@ -46,7 +46,7 @@ function OrderList() {
         title="No orders yet"
         body="When you place an order it will show up here."
         action={
-          <Link href="/products" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+          <Link href="/products" className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-fg hover:bg-primary-hover">
             <ShoppingBag className="size-4" /> Start shopping
           </Link>
         }
@@ -65,36 +65,36 @@ function OrderList() {
             <li key={o.id}>
               <Link
                 href={`/orders/${o.id}`}
-                className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md"
+                className="flex items-center gap-4 rounded-2xl border border-line bg-surface p-4 transition-shadow hover:shadow-md"
               >
-                <div className="shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                <div className="shrink-0 overflow-hidden rounded-xl bg-surface-2">
                   <ProductImage src={m?.imageUrl} name={first?.name ?? 'Order'} category={m?.category ?? ''} width={160} className="size-16" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">Order #{o.orderNumber}</p>
-                  <p className="truncate text-sm text-slate-500">
+                  <p className="truncate text-sm text-muted">
                     {first?.name}
                     {o.items.length > 1 && ` + ${o.items.length - 1} more`}
                   </p>
-                  <p className="text-sm text-slate-500">
-                    {o.itemCount} item{o.itemCount === 1 ? '' : 's'} · <span className="font-semibold text-slate-900">{money(o.totalAmount)}</span>
+                  <p className="text-sm text-muted">
+                    {o.itemCount} item{o.itemCount === 1 ? '' : 's'} · <span className="font-semibold text-fg">{money(o.totalAmount)}</span>
                   </p>
                 </div>
                 <div className="hidden flex-col items-end gap-1.5 sm:flex">
                   <div className="flex items-center gap-2">
                     {awaitingPayment && (
-                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">Awaiting payment</span>
+                      <span className="rounded-full bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning">Awaiting payment</span>
                     )}
                     <StatusBadge status={o.status} />
                   </div>
-                  <span className="text-xs text-slate-400">{dateTime(o.createdAt)}</span>
+                  <span className="text-xs text-subtle">{dateTime(o.createdAt)}</span>
                 </div>
-                <span className="hidden rounded-lg px-3 py-2 text-sm font-medium text-blue-600 ring-1 ring-blue-200 md:block">View Details</span>
-                <ChevronRight className="size-5 shrink-0 text-slate-300 md:hidden" />
+                <span className="hidden rounded-xl px-3 py-2 text-sm font-medium text-primary ring-1 ring-primary/30 md:block">View Details</span>
+                <ChevronRight className="size-5 shrink-0 text-subtle md:hidden" />
               </Link>
               <div className="mt-1 flex items-center gap-2 px-2 sm:hidden">
                 <StatusBadge status={o.status} />
-                {awaitingPayment && <span className="text-xs font-medium text-amber-700">Awaiting payment</span>}
+                {awaitingPayment && <span className="text-xs font-medium text-warning">Awaiting payment</span>}
               </div>
             </li>
           );
@@ -105,7 +105,7 @@ function OrderList() {
           <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Previous
           </Button>
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted">
             Page {meta.page} of {meta.totalPages}
           </span>
           <Button variant="secondary" disabled={page >= meta.totalPages} onClick={() => setPage((p) => p + 1)}>

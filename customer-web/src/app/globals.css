@@ -1,15 +1,169 @@
 @import 'tailwindcss';
 
-@theme {
+/* `dark:` follows the theme chosen in Settings (data-theme on <html>), not only the OS preference. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * Semantic colour tokens. Components use these (bg-surface, text-muted, bg-primary, …) instead of raw palette
+ * colours, so the Light / Dark theme and the accent colour from Settings restyle the whole storefront.
+ */
+@theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-inverse: var(--inverse);
+  --color-inverse-fg: var(--inverse-fg);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-fg: var(--primary-soft-fg);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
 }
 
 :root {
   color-scheme: light;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --surface-3: #e3e7ed;
+  --fg: #0f172a;
+  --fg-2: #334155;
+  --muted: #64748b;
+  --subtle: #94a3b8;
+  --line: #e5e7eb;
+  --line-2: #cbd5e1;
+  --inverse: #0f172a;
+  --inverse-fg: #ffffff;
+
+  --success: #047857;
+  --success-soft: #ecfdf5;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --danger: #be123c;
+  --danger-soft: #fff1f2;
+  --info: #0369a1;
+  --info-soft: #f0f9ff;
+
+  /* accent: blue (default) */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-fg: #ffffff;
+  --primary-soft: #eff6ff;
+  --primary-soft-fg: #1d4ed8;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a0e15;
+  --surface: #121823;
+  --surface-2: #19212e;
+  --surface-3: #243042;
+  --fg: #e8ecf2;
+  --fg-2: #c2cad6;
+  --muted: #8d98aa;
+  --subtle: #66728a;
+  --line: #222b39;
+  --line-2: #334155;
+  --inverse: #f1f5f9;
+  --inverse-fg: #0f172a;
+
+  --success: #34d399;
+  --success-soft: rgb(16 185 129 / 0.13);
+  --warning: #fbbf24;
+  --warning-soft: rgb(245 158 11 / 0.13);
+  --danger: #fb7185;
+  --danger-soft: rgb(244 63 94 / 0.13);
+  --info: #38bdf8;
+  --info-soft: rgb(14 165 233 / 0.13);
+
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-fg: #ffffff;
+  --primary-soft: rgb(59 130 246 / 0.15);
+  --primary-soft-fg: #93c5fd;
+}
+
+/* ---------- accent colours (Settings → Accent colour) ---------- */
+[data-accent='violet'] {
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-soft: #f5f3ff;
+  --primary-soft-fg: #6d28d9;
+}
+[data-theme='dark'][data-accent='violet'] {
+  --primary: #8b5cf6;
+  --primary-hover: #a78bfa;
+  --primary-soft: rgb(139 92 246 / 0.16);
+  --primary-soft-fg: #c4b5fd;
+}
+[data-accent='emerald'] {
+  --primary: #047857;
+  --primary-hover: #065f46;
+  --primary-soft: #ecfdf5;
+  --primary-soft-fg: #047857;
+}
+[data-theme='dark'][data-accent='emerald'] {
+  --primary: #10b981;
+  --primary-hover: #34d399;
+  --primary-fg: #04130d;
+  --primary-soft: rgb(16 185 129 / 0.15);
+  --primary-soft-fg: #6ee7b7;
+}
+[data-accent='rose'] {
+  --primary: #e11d48;
+  --primary-hover: #be123c;
+  --primary-soft: #fff1f2;
+  --primary-soft-fg: #be123c;
+}
+[data-theme='dark'][data-accent='rose'] {
+  --primary: #f43f5e;
+  --primary-hover: #fb7185;
+  --primary-soft: rgb(244 63 94 / 0.15);
+  --primary-soft-fg: #fda4af;
+}
+[data-accent='orange'] {
+  --primary: #c2410c;
+  --primary-hover: #9a3412;
+  --primary-soft: #fff7ed;
+  --primary-soft-fg: #c2410c;
+}
+[data-theme='dark'][data-accent='orange'] {
+  --primary: #f97316;
+  --primary-hover: #fb923c;
+  --primary-fg: #1a0b02;
+  --primary-soft: rgb(249 115 22 / 0.15);
+  --primary-soft-fg: #fdba74;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-bg text-fg antialiased;
+}
+
+/* Smooth hand-over when the theme changes, without animating every hover. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease !important;
 }
 
 /* Horizontal scrollers (category chips, product rails) without a visible scrollbar. */

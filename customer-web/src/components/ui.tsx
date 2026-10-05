@@ -9,11 +9,11 @@ function cx(...classes: (string | false | null | undefined)[]) {
 
 type Variant = 'primary' | 'dark' | 'secondary' | 'outline' | 'ghost';
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-blue-300',
-  dark: 'bg-slate-900 text-white hover:bg-slate-800 disabled:bg-slate-400',
-  secondary: 'bg-white text-slate-900 ring-1 ring-slate-300 hover:bg-slate-50 disabled:text-slate-400',
-  outline: 'bg-white text-blue-600 ring-1 ring-blue-600 hover:bg-blue-50 disabled:text-blue-300 disabled:ring-blue-200',
-  ghost: 'text-slate-600 hover:text-slate-900 hover:bg-slate-100',
+  primary: 'bg-primary text-primary-fg shadow-sm shadow-primary/20 hover:bg-primary-hover disabled:opacity-50 disabled:shadow-none',
+  dark: 'bg-inverse text-inverse-fg hover:opacity-90 disabled:opacity-40',
+  secondary: 'bg-surface text-fg ring-1 ring-line-2 hover:bg-surface-2 disabled:text-subtle',
+  outline: 'bg-transparent text-primary ring-1 ring-primary hover:bg-primary-soft disabled:opacity-50',
+  ghost: 'text-fg-2 hover:text-fg hover:bg-surface-2',
 };
 
 export function Button({
@@ -29,7 +29,7 @@ export function Button({
       {...props}
       disabled={disabled || loading}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:active:scale-100',
         VARIANTS[variant],
         className,
       )}
@@ -40,52 +40,46 @@ export function Button({
   );
 }
 
+const FIELD_BASE =
+  'w-full rounded-xl border bg-surface px-3.5 py-2.5 text-sm text-fg placeholder:text-subtle transition-colors focus:outline-none focus:ring-4';
+
 export function Input({ className, invalid, ...props }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
   return (
     <input
       {...props}
       aria-invalid={invalid || undefined}
-      className={cx(
-        'w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2',
-        invalid ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100',
-        className,
-      )}
+      className={cx(FIELD_BASE, invalid ? 'border-danger focus:ring-danger/15' : 'border-line-2 focus:border-primary focus:ring-primary/15', className)}
     />
   );
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className={cx(
-        'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100',
-        className,
-      )}
-    />
-  );
+  return <textarea {...props} className={cx(FIELD_BASE, 'border-line-2 focus:border-primary focus:ring-primary/15', className)} />;
 }
+
+/** Native select styled like the inputs. */
+export const selectClass = cx(FIELD_BASE, 'border-line-2 focus:border-primary focus:ring-primary/15');
 
 export function Field({ label, htmlFor, error, children }: { label: string; htmlFor: string; error?: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700">
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-fg-2">
         {label}
       </label>
       {children}
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      {error && <p className="text-xs font-medium text-danger">{error}</p>}
     </div>
   );
 }
 
 export function Alert({ tone = 'error', children }: { tone?: 'error' | 'success' | 'info'; children: ReactNode }) {
   const styles = {
-    error: 'bg-rose-50 text-rose-800 ring-rose-200',
-    success: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-    info: 'bg-sky-50 text-sky-800 ring-sky-200',
+    error: 'bg-danger-soft text-danger ring-danger/25',
+    success: 'bg-success-soft text-success ring-success/25',
+    info: 'bg-info-soft text-info ring-info/25',
   };
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={cx('rounded-lg px-4 py-3 text-sm ring-1', styles[tone])}>
+    <div role={tone === 'error' ? 'alert' : 'status'} className={cx('rounded-xl px-4 py-3 text-sm ring-1', styles[tone])}>
       {children}
     </div>
   );
@@ -102,7 +96,7 @@ export function Spinner({ className }: { className?: string }) {
 
 export function PageLoader() {
   return (
-    <div className="flex justify-center py-24 text-slate-400" aria-label="Loading">
+    <div className="flex justify-center py-24 text-subtle" aria-label="Loading">
       <Spinner />
     </div>
   );
@@ -110,17 +104,19 @@ export function PageLoader() {
 
 export function StatusBadge({ status }: { status: OrderStatus }) {
   return (
-    <span className={cx('inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1', STATUS_STYLE[status])}>
+    <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1', STATUS_STYLE[status])}>
+      <span className="size-1.5 rounded-full bg-current" />
       {STATUS_LABEL[status]}
     </span>
   );
 }
 
-export function EmptyState({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
+export function EmptyState({ title, body, action, icon }: { title: string; body?: string; action?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-      {body && <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{body}</p>}
+    <div className="rounded-3xl border border-dashed border-line-2 bg-surface px-6 py-16 text-center">
+      {icon && <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary">{icon}</div>}
+      <h2 className="text-lg font-semibold text-fg">{title}</h2>
+      {body && <p className="mx-auto mt-2 max-w-md text-sm text-muted">{body}</p>}
       {action && <div className="mt-6">{action}</div>}
     </div>
   );
@@ -155,7 +151,20 @@ export function ProductImage({
 }
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx('rounded-2xl border border-slate-200 bg-white', className)}>{children}</div>;
+  return <div className={cx('rounded-2xl border border-line bg-surface', className)}>{children}</div>;
+}
+
+/** Section title row used across the storefront. */
+export function SectionHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+  return (
+    <div className="mb-5 flex items-end justify-between gap-4">
+      <div>
+        <h2 className="text-xl font-bold tracking-tight text-fg sm:text-2xl">{title}</h2>
+        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  );
 }
 
 export { cx };

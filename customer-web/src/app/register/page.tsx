@@ -73,9 +73,9 @@ function RegisterForm() {
     <div className="mx-auto max-w-sm space-y-6 py-8">
       <div className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
-        <p className="mt-1 text-sm text-slate-500">Track orders and check out faster.</p>
+        <p className="mt-1 text-sm text-muted">Track orders and check out faster.</p>
       </div>
-      <form onSubmit={onSubmit} noValidate className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
+      <form onSubmit={onSubmit} noValidate className="space-y-4 rounded-2xl border border-line bg-surface p-6">
         {error && <Alert>{error}</Alert>}
         <Field label="Full name" htmlFor="name" error={errors.name}>
           <Input id="name" autoComplete="name" value={form.name} onChange={set('name')} invalid={!!errors.name} />
@@ -93,9 +93,9 @@ function RegisterForm() {
           Create account
         </Button>
       </form>
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-muted">
         Already have an account?{' '}
-        <Link href={`/login?next=${encodeURIComponent(next)}`} className="font-medium text-slate-900 underline">
+        <Link href={`/login?next=${encodeURIComponent(next)}`} className="font-medium text-fg underline">
           Sign in
         </Link>
       </p>
