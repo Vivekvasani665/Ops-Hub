@@ -17,10 +17,15 @@ export default defineConfig(({ mode }) => {
     server: {
       port: Number(env.WEB_PORT) || 5173,
       strictPort: true, // backend WEB_ORIGIN only allows 5173; fail loudly instead of drifting to 5174
+      // Allow Cloudflare quick tunnels (the subdomain changes on every `cloudflared tunnel` run).
+      allowedHosts: ['.trycloudflare.com'],
       proxy: {
         '/api': { target: apiTarget, changeOrigin: true },
         '/socket.io': { target: apiTarget, ws: true, changeOrigin: true },
       },
+    },
+    preview: {
+      allowedHosts: ['.trycloudflare.com'],
     },
   };
 });
