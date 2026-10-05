@@ -17,7 +17,7 @@ export function assertTransition(from: OrderStatus, to: OrderStatus) {
 
 /** An online order only moves forward once the backend has verified its payment. */
 export function assertPaymentAllowsTransition(to: OrderStatus, payment: OrderPaymentDto | null) {
-  if (payment?.method === 'RAZORPAY' && payment.status !== 'PAID' && to !== 'CANCELLED') {
+  if (payment?.method === 'ONLINE' && payment.status !== 'PAID' && to !== 'CANCELLED') {
     throw new AppError(409, 'PAYMENT_NOT_COMPLETED', 'This order is awaiting online payment and can only be cancelled', {
       paymentStatus: payment.status,
     });

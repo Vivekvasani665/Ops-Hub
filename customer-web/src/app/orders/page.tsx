@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { ChevronRight, ShoppingBag } from 'lucide-react';
 import { api } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
@@ -10,6 +11,14 @@ import type { Order, PageMeta } from '@/lib/types';
 import { AccountLayout } from '@/components/AccountLayout';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Alert, Button, EmptyState, PageLoader, ProductImage, StatusBadge } from '@/components/ui';
+
+/** Shown when the PayU return could not be matched to an order (e.g. a tampered or unverifiable response). */
+function PaymentNotice() {
+  const outcome = useSearchParams().get('payment');
+  if (outcome === 'invalid') return <Alert>Payment verification failed. If money was deducted, it will be confirmed or refunded automatically.</Alert>;
+  if (outcome === 'pending') return <Alert tone="info">Payment is still processing. Your order will update once PayU confirms it.</Alert>;
+  return null;
+}
 
 function OrderList() {
   const [page, setPage] = useState(1);
@@ -114,6 +123,9 @@ export default function OrdersPage() {
       <AccountLayout>
         <div className="space-y-5">
           <h1 className="text-2xl font-bold tracking-tight">My Orders</h1>
+          <Suspense fallback={null}>
+            <PaymentNotice />
+          </Suspense>
           <OrderList />
         </div>
       </AccountLayout>

@@ -60,7 +60,7 @@ export function Footer() {
         ))}
         <div>
           <h3 className="text-sm font-semibold text-white">Secure payments</h3>
-          <p className="mt-3 text-sm text-slate-400">UPI, cards, wallets and net banking via Razorpay, or cash on delivery.</p>
+          <p className="mt-3 text-sm text-slate-400">UPI, cards, wallets and net banking via PayU, or cash on delivery.</p>
           <PaymentMarks className="mt-4" />
         </div>
       </div>

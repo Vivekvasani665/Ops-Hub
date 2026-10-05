@@ -45,7 +45,7 @@ function emitAudits(orgId: Types.ObjectId, docs: (AuditDoc | null)[]) {
  * does not exist, and a job never exists for an order that was not committed.
  */
 export interface CreateOrderOptions {
-  /** Storefront orders only; the payment starts PENDING (COD is collected on delivery, Razorpay after checkout). */
+  /** Storefront orders only; the payment starts PENDING (COD is collected on delivery, ONLINE via PayU after checkout). */
   paymentMethod?: PaymentMethod;
 }
 
@@ -194,7 +194,7 @@ export async function updateOrderStatus(
     assertPaymentAllowsTransition(input.status, toPaymentDto(current));
     // Cash on delivery is collected when the order is handed over.
     const codCollected = input.status === 'DELIVERED' && current.paymentMethod === 'COD' && current.paymentStatus === 'PENDING';
-    // A payment that has not happened yet never will: a late Razorpay payment is refunded by the payments module.
+    // A payment that has not happened yet never will: a late PayU payment is refunded by the payments module.
     const paymentAbandoned = input.status === 'CANCELLED' && current.paymentStatus === 'PENDING';
 
     const order = await Order.findOneAndUpdate(
@@ -342,6 +342,7 @@ export async function listOrders(
         status: 1,
         paymentMethod: 1,
         paymentStatus: 1,
+        'payment.gateway': 1,
         'payment.instrument': 1,
         createdAt: 1,
       })

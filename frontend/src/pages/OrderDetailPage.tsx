@@ -6,7 +6,7 @@ import type { OrderStatus } from '@/shared';
 import { useOrder, useUpdateOrderStatus } from '@/features/orders/hooks';
 import { useCan } from '@/features/auth/hooks';
 import { toApiError } from '@/lib/api';
-import { ORDER_STATUS_META, PAYMENT_STATUS_META, TRANSITION_LABEL, paymentMethodLabel } from '@/lib/status';
+import { ORDER_STATUS_META, PAYMENT_STATUS_META, TRANSITION_LABEL, paymentGatewayLabel, paymentMethodLabel } from '@/lib/status';
 import { formatDateTime, formatMoney, formatNumber } from '@/lib/utils';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -186,21 +186,23 @@ export function OrderDetailPage() {
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
                   <dt className="text-slate-500">Method</dt>
                   <dd className="text-slate-800">
-                    {o.payment.method === 'COD' ? 'Cash on delivery' : `Razorpay · ${paymentMethodLabel(o.payment)}`}
+                    {o.payment.method === 'COD' ? 'Cash on delivery (COD)' : paymentMethodLabel(o.payment)}
                     {o.payment.instrumentDetail && <span className="text-slate-500"> · {o.payment.instrumentDetail}</span>}
                   </dd>
+                  <dt className="text-slate-500">Gateway</dt>
+                  <dd className="text-slate-800">{paymentGatewayLabel(o.payment)}</dd>
                   <dt className="text-slate-500">Status</dt>
                   <dd className="text-slate-800">{PAYMENT_STATUS_META[o.payment.status].label}</dd>
-                  {o.payment.razorpayPaymentId && (
+                  {o.payment.gatewayTransactionId && (
                     <>
-                      <dt className="text-slate-500">Payment ID</dt>
-                      <dd className="font-mono break-all text-slate-800">{o.payment.razorpayPaymentId}</dd>
+                      <dt className="text-slate-500">PayU payment ID</dt>
+                      <dd className="font-mono break-all text-slate-800">{o.payment.gatewayTransactionId}</dd>
                     </>
                   )}
-                  {o.payment.razorpayOrderId && (
+                  {o.payment.gatewayOrderId && (
                     <>
-                      <dt className="text-slate-500">Razorpay order</dt>
-                      <dd className="font-mono break-all text-slate-800">{o.payment.razorpayOrderId}</dd>
+                      <dt className="text-slate-500">Transaction ID</dt>
+                      <dd className="font-mono break-all text-slate-800">{o.payment.gatewayOrderId}</dd>
                     </>
                   )}
                   {o.payment.paidAt && (
@@ -216,7 +218,7 @@ export function OrderDetailPage() {
                     </>
                   )}
                 </dl>
-                {o.payment.method === 'RAZORPAY' && o.payment.status === 'PENDING' && o.status === 'PENDING' && (
+                {o.payment.method === 'ONLINE' && o.payment.status !== 'PAID' && o.status === 'PENDING' && (
                   <p className="text-xs text-amber-700">Awaiting online payment. The order can be confirmed once the payment is verified.</p>
                 )}
               </CardBody>

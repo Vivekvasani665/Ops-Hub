@@ -9,7 +9,7 @@ import { useCart } from '@/context/cart';
 import { RequireAuth } from '@/components/RequireAuth';
 import { api, ApiError } from '@/lib/api';
 import { money, newIdempotencyKey } from '@/lib/format';
-import { payWithRazorpay, type PaymentStage } from '@/lib/razorpay';
+import { redirectToPayu } from '@/lib/payu';
 import type { ShippingAddress } from '@/lib/types';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { PaymentMarks } from '@/components/Footer';
@@ -38,11 +38,11 @@ function validate(s: ShippingAddress): Errors {
   return e;
 }
 
-const STAGE_LABEL: Record<PaymentStage | 'placing', string> = {
+type Stage = 'placing' | 'redirecting';
+
+const STAGE_LABEL: Record<Stage, string> = {
   placing: 'Placing your order…',
-  starting: 'Loading payment…',
-  awaiting: 'Complete the payment in the Razorpay window…',
-  verifying: 'Verifying your payment…',
+  redirecting: 'Redirecting to PayU secure checkout…',
 };
 
 function CheckoutForm() {
@@ -63,19 +63,8 @@ function CheckoutForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>('upi');
-  const [onlineAvailable, setOnlineAvailable] = useState(true);
-  const [stage, setStage] = useState<PaymentStage | 'placing' | null>(null);
+  const [stage, setStage] = useState<Stage | null>(null);
   const placed = useRef(false);
-
-  useEffect(() => {
-    api.store().then(
-      (s) => {
-        setOnlineAvailable(s.payments.online);
-        if (!s.payments.online) setPaymentChoice('cod');
-      },
-      () => undefined,
-    );
-  }, []);
 
   const online = paymentChoice !== 'cod';
 
@@ -123,7 +112,7 @@ function CheckoutForm() {
           items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
           shipping: { ...shipping, line2: shipping.line2?.trim() || undefined },
           notes: notes.trim() || undefined,
-          paymentMethod: online ? 'RAZORPAY' : 'COD',
+          paymentMethod: online ? 'ONLINE' : 'COD',
         },
         idempotencyKey.current,
       );
@@ -133,9 +122,11 @@ function CheckoutForm() {
         router.replace(`/orders/${order.id}/success`);
         return;
       }
-      // The order exists now (awaiting payment); a failed or cancelled payment lands on its page, which offers retry.
-      const outcome = await payWithRazorpay(order.id, paymentChoice as Exclude<PaymentChoice, 'cod'>, setStage);
-      router.replace(outcome.kind === 'paid' ? `/orders/${order.id}/success` : `/orders/${order.id}?payment=${outcome.kind}`);
+      // The order exists now (awaiting payment). The browser leaves for PayU; if the redirect cannot start,
+      // the order's page explains why and offers a retry.
+      setStage('redirecting');
+      const failure = await redirectToPayu(order.id);
+      router.replace(failure === 'already_paid' ? `/orders/${order.id}/success` : `/orders/${order.id}?payment=${failure}`);
     } catch (err) {
       if (err instanceof ApiError) {
         // The server answered, so nothing was created: a corrected retry needs a fresh key.
@@ -150,9 +141,7 @@ function CheckoutForm() {
         } else if (err.status === 401) {
           router.replace('/login?next=/checkout');
         } else if (err.code === 'PAYMENTS_UNAVAILABLE') {
-          setOnlineAvailable(false);
-          setPaymentChoice('cod');
-          setSubmitError(err.message);
+          setSubmitError('Unable to initialize payment. Please try again, or choose Cash on Delivery.');
         } else {
           setSubmitError(err.message);
         }
@@ -250,7 +239,7 @@ function CheckoutForm() {
           </div>
         </dl>
 
-        <PaymentOptions value={paymentChoice} onChange={setPaymentChoice} onlineAvailable={onlineAvailable} disabled={submitting} />
+        <PaymentOptions value={paymentChoice} onChange={setPaymentChoice} disabled={submitting} />
 
         {submitError && <Alert>{submitError}</Alert>}
         {stage && <Alert tone="info">{STAGE_LABEL[stage]}</Alert>}
@@ -265,7 +254,7 @@ function CheckoutForm() {
         <div className="space-y-2 border-t border-slate-100 pt-4">
           <p className="flex items-center gap-2 text-xs text-slate-500">
             <ShieldCheck className="size-4 shrink-0 text-emerald-600" />
-            Your payment information is safe and secure with Razorpay.
+            Your payment information is safe and secure with PayU.
           </p>
           <PaymentMarks />
         </div>

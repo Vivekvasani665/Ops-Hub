@@ -4,6 +4,7 @@ import {
   type OrderListItemDto,
   type OrderPaymentDto,
   type OrderStatus,
+  type PaymentGateway,
   type PaymentMethod,
   type PaymentStatus,
 } from '@shared';
@@ -12,8 +13,9 @@ interface PaymentLike {
   paymentMethod?: string | null;
   paymentStatus?: string | null;
   payment?: {
-    razorpayOrderId?: string | null;
-    razorpayPaymentId?: string | null;
+    gateway?: string | null;
+    gatewayOrderId?: string | null;
+    gatewayTransactionId?: string | null;
     instrument?: string | null;
     instrumentDetail?: string | null;
     paidAt?: Date | null;
@@ -27,10 +29,11 @@ export function toPaymentDto(o: PaymentLike): OrderPaymentDto | null {
   return {
     method: o.paymentMethod as PaymentMethod,
     status: (o.paymentStatus ?? 'PENDING') as PaymentStatus,
+    gateway: (p.gateway ?? null) as PaymentGateway | null,
     instrument: p.instrument ?? null,
     instrumentDetail: p.instrumentDetail ?? null,
-    razorpayOrderId: p.razorpayOrderId ?? null,
-    razorpayPaymentId: p.razorpayPaymentId ?? null,
+    gatewayOrderId: p.gatewayOrderId ?? null,
+    gatewayTransactionId: p.gatewayTransactionId ?? null,
     paidAt: p.paidAt ? new Date(p.paidAt).toISOString() : null,
     refundedAt: p.refundedAt ? new Date(p.refundedAt).toISOString() : null,
   };
@@ -110,6 +113,7 @@ export function toOrderListItemDto(o: PaymentLike & {
       ? {
           method: o.paymentMethod as PaymentMethod,
           status: (o.paymentStatus ?? 'PENDING') as PaymentStatus,
+          gateway: (o.payment?.gateway ?? null) as PaymentGateway | null,
           instrument: o.payment?.instrument ?? null,
         }
       : null,

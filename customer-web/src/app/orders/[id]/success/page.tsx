@@ -23,7 +23,7 @@ function Success() {
   if (!order) return <PageLoader />;
 
   // Reached only after COD placement or a server-verified payment; guard against a stale link anyway.
-  const awaitingPayment = order.payment?.method === 'RAZORPAY' && order.payment.status === 'PENDING';
+  const awaitingPayment = order.payment?.method === 'ONLINE' && (order.payment.status === 'PENDING' || order.payment.status === 'FAILED');
 
   const facts = [
     { icon: Hash, label: 'Order ID', value: `#${order.orderNumber}` },

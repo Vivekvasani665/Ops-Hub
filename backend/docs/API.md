@@ -35,26 +35,26 @@ It also carries all-time `totalRevenue` (non-cancelled orders), `totalProducts`,
 - `POST /orders` with the header **`Idempotency-Key: <uuid>`** (required) and body `CreateOrderInput` returns `201 { data: OrderDto }`.
   A retry with the same key and body replays the original response (`Idempotent-Replayed: true` header).
 - `PATCH /orders/:id/status` with body `{ status, reason? }` returns `{ data: OrderDto }`.
-  An online (Razorpay) order that is not yet `PAID` can only be cancelled (`409 PAYMENT_NOT_COMPLETED` otherwise).
+  An online (`ONLINE`, PayU) order that is not yet `PAID` can only be cancelled (`409 PAYMENT_NOT_COMPLETED` otherwise).
   Delivering a COD order marks its payment `PAID`.
-- `OrderDto.payment` / `OrderListItemDto.payment` hold `{ method: RAZORPAY|COD, status: PENDING|PAID|FAILED|REFUNDED, instrument, … }`.
+- `OrderDto.payment` / `OrderListItemDto.payment` hold `{ method: ONLINE|COD, gateway: PAYU|null, status: PENDING|PAID|FAILED|REFUNDED, instrument, … }`.
   The value is `null` for orders created by staff.
 
-## Storefront payments (Razorpay)
-Customer session required. Amounts always come from the order in the database, and the key secret never leaves the server.
-1. `POST /storefront/orders` with `paymentMethod: "RAZORPAY"` creates the order as `PENDING` with payment `PENDING` and reserves stock.
-   It returns `503 PAYMENTS_UNAVAILABLE` when the Razorpay keys are not configured. COD (`"COD"`, the default) works the same way, without the steps below.
-2. `POST /storefront/payments/razorpay/order` with body `{ orderId }` returns `{ keyId, razorpayOrderId, amount, currency, expiresInSeconds, … }`.
-   Retries reuse the same Razorpay order.
-3. `POST /storefront/payments/razorpay/verify` with body `{ orderId, razorpay_order_id, razorpay_payment_id, razorpay_signature }` does two things:
-   it checks the HMAC signature and re-fetches the payment from Razorpay. The order then becomes `CONFIRMED` with payment `PAID`.
-   A bad signature returns `400 PAYMENT_VERIFICATION_FAILED`.
-4. `POST /storefront/payments/razorpay/reconcile` with body `{ orderId }` asks Razorpay for the order's payments, for when the browser lost the result.
-- `POST /payments/razorpay/webhook` is server-to-server. It is verified with `X-Razorpay-Signature` (`RAZORPAY_WEBHOOK_SECRET`) and deduplicated by `X-Razorpay-Event-Id`.
-  It handles `payment.captured`, `payment.authorized`, `order.paid`, `payment.failed` and `refund.processed`.
-- Each path that marks an order paid uses a conditional update, so a payment is applied only once.
-  A payment that arrives for an order that was cancelled in the meantime is refunded automatically.
-- The worker cancels unpaid online orders after `PAYMENT_TIMEOUT_MINUTES` (default 30) and releases their stock. It checks with Razorpay one last time first.
+## Storefront payments (PayU Hosted Checkout)
+Customer session required (except the callback). Amounts always come from the order in the database; `PAYU_SALT` never leaves the server.
+1. `POST /storefront/orders` with `paymentMethod: "ONLINE"` creates the order as `PENDING` with payment `PENDING` and reserves stock.
+   It returns `503 PAYMENTS_UNAVAILABLE` when PayU is not configured. COD (`"COD"`, the default) works the same way, without the steps below.
+2. `POST /storefront/payments/payu/create` with body `{ orderId }` returns `{ action, fields }`: the PayU URL and the signed form
+   (`key, txnid, amount, productinfo, firstname, email, phone, surl, furl, udf1, udf2, hash`). Each call is a new attempt with a new `txnid`.
+   The browser posts the form to `action`. Errors: `404` (not the customer's order), `409 ALREADY_PAID | PAYMENT_CLOSED | PAYMENT_WINDOW_EXPIRED | NOT_AN_ONLINE_ORDER`.
+3. PayU posts the result to `PAYU_SUCCESS_URL` / `PAYU_FAILURE_URL` (the storefront's `/payment/success|failure`), which forwards the form to
+   `POST /payments/payu/callback` (form-encoded, no session) → `{ data: { outcome: paid|failed|cancelled|pending|invalid, orderId } }`.
+   The reverse hash is checked; a `success` is re-read from PayU's Verify API and its amount compared with the order total before the order
+   becomes `PROCESSING` with payment `PAID`. A failure or cancellation marks the payment `FAILED`; the order stays payable until the window ends.
+4. `POST /storefront/payments/payu/reconcile` with body `{ orderId }` asks PayU about every attempt of the order, for when the redirect back was lost.
+- Each path that marks an order paid uses a conditional update, so a payment is applied only once (duplicate callbacks are no-ops).
+  A payment for an order that was cancelled or already paid in the meantime, or for a different amount, is refunded automatically.
+- The worker cancels unpaid online orders after `PAYMENT_TIMEOUT_MINUTES` (default 30) and releases their stock. It checks with PayU one last time first.
 
 ## Products & Inventory
 - `GET /products?search=&category=&status=active|inactive&sort=name|newest|oldest|price_asc|price_desc&page=&limit=` returns `{ data: ProductWithInventoryDto[], meta: PageMeta }`

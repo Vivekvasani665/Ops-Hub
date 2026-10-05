@@ -40,7 +40,7 @@ async function main() {
   await schedule();
   const timer = setInterval(schedule, 60 * 60 * 1000);
 
-  // Unpaid online orders: reconcile with Razorpay one last time, otherwise cancel and release stock.
+  // Unpaid online orders: reconcile with PayU one last time, otherwise cancel and release stock.
   // Safe on several workers at once: the cancel is a conditional status transition.
   const sweepPayments = () =>
     expireUnpaidOrders()

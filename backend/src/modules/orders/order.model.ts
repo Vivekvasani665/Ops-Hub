@@ -1,5 +1,5 @@
 import { Schema, model, type InferSchemaType } from 'mongoose';
-import { ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES } from '@shared';
+import { ORDER_STATUSES, PAYMENT_GATEWAYS, PAYMENT_METHODS, PAYMENT_STATUSES } from '@shared';
 
 const orderItemSchema = new Schema(
   {
@@ -27,8 +27,13 @@ const statusChangeSchema = new Schema(
 /** Gateway details of a storefront order. Amounts are never stored here: `totalAmount` is the only price. */
 const paymentSchema = new Schema(
   {
-    razorpayOrderId: { type: String, default: null },
-    razorpayPaymentId: { type: String, default: null },
+    gateway: { type: String, enum: [...PAYMENT_GATEWAYS, null], default: null },
+    /** PayU txnid of the latest attempt. */
+    gatewayOrderId: { type: String, default: null },
+    /** Every txnid ever issued for this order, so a payment on any attempt can be found and applied once. */
+    txnIds: { type: [String], default: undefined },
+    /** PayU mihpayid of the successful transaction. */
+    gatewayTransactionId: { type: String, default: null },
     instrument: { type: String, default: null },
     instrumentDetail: { type: String, default: null },
     paidAt: { type: Date, default: null },
@@ -78,15 +83,15 @@ orderSchema.index({ organizationId: 1, orderNumber: 1 }, { unique: true });
 // Prefix search on customer name / email.
 orderSchema.index({ organizationId: 1, 'customer.nameLower': 1, createdAt: -1 });
 orderSchema.index({ organizationId: 1, 'customer.email': 1, createdAt: -1 });
-// Webhook / verification lookup; one Razorpay order belongs to exactly one order.
+// PayU callback / verification lookup; a txnid belongs to exactly one order.
 orderSchema.index(
-  { 'payment.razorpayOrderId': 1 },
-  { unique: true, partialFilterExpression: { 'payment.razorpayOrderId': { $type: 'string' } } },
+  { 'payment.txnIds': 1 },
+  { name: 'payu_txnids', unique: true, partialFilterExpression: { 'payment.txnIds': { $exists: true } } },
 );
-// Sweep of online orders whose payment never completed.
+// Sweep of online orders whose payment never completed (paid orders leave PENDING).
 orderSchema.index(
   { createdAt: 1 },
-  { name: 'unpaid_online_orders', partialFilterExpression: { paymentMethod: 'RAZORPAY', paymentStatus: 'PENDING' } },
+  { name: 'unpaid_payu_orders', partialFilterExpression: { paymentMethod: 'ONLINE', status: 'PENDING' } },
 );
 
 export type OrderDoc = InferSchemaType<typeof orderSchema>;

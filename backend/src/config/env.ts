@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/** Optional URL where a blank value (`PAYU_SUCCESS_URL=`) means unset. */
+const optionalUrl = z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), z.string().trim().url().optional());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().default(4000),
@@ -23,12 +26,20 @@ const envSchema = z.object({
   ORG_TIMEZONE: z.string().default('Asia/Kolkata'),
   /** organization whose catalog the customer web storefront sells */
   STOREFRONT_ORG_SLUG: z.string().default('acme'),
-  /** Razorpay API keys. Online payments are disabled (COD only) until both are set. Never sent to a client except the key id. */
-  RAZORPAY_KEY_ID: z.string().trim().optional(),
-  RAZORPAY_KEY_SECRET: z.string().trim().optional(),
-  /** Secret configured on the Razorpay dashboard webhook; the webhook endpoint rejects every call without it. */
-  RAZORPAY_WEBHOOK_SECRET: z.string().trim().optional(),
-  RAZORPAY_API_URL: z.string().default('https://api.razorpay.com/v1'),
+  /**
+   * PayU India Hosted Checkout. Online payments are disabled (COD only) until key, salt and both callback
+   * URLs are set. PAYU_SALT is server-only: it signs requests and verifies PayU's responses, never sent anywhere.
+   */
+  PAYU_MERCHANT_KEY: z.string().trim().optional(),
+  PAYU_SALT: z.string().trim().optional(),
+  PAYU_ENV: z.enum(['test', 'production']).default('test'),
+  /** Hosted checkout endpoint; defaults from PAYU_ENV (test.payu.in / secure.payu.in). */
+  PAYU_PAYMENT_URL: optionalUrl,
+  /** Verify / refund API; defaults from PAYU_ENV. */
+  PAYU_API_URL: optionalUrl,
+  /** Public HTTPS URLs PayU posts the result to (the storefront's /payment/success and /payment/failure). */
+  PAYU_SUCCESS_URL: optionalUrl,
+  PAYU_FAILURE_URL: optionalUrl,
   /** Unpaid online orders are cancelled (stock released) after this many minutes. */
   PAYMENT_TIMEOUT_MINUTES: z.coerce.number().int().min(5).default(30),
   WORKER_POLL_MS: z.coerce.number().int().default(1000),
@@ -44,7 +55,16 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-export const razorpayEnabled = Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
+export const payuEnabled = Boolean(env.PAYU_MERCHANT_KEY && env.PAYU_SALT && env.PAYU_SUCCESS_URL && env.PAYU_FAILURE_URL);
+
+export const payuUrls = {
+  payment: env.PAYU_PAYMENT_URL ?? (env.PAYU_ENV === 'production' ? 'https://secure.payu.in/_payment' : 'https://test.payu.in/_payment'),
+  api:
+    env.PAYU_API_URL ??
+    (env.PAYU_ENV === 'production'
+      ? 'https://info.payu.in/merchant/postservice.php?form=2'
+      : 'https://test.payu.in/merchant/postservice.php?form=2'),
+};
 
 if (
   env.NODE_ENV === 'production' &&

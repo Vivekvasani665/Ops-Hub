@@ -12,7 +12,8 @@ import { TableSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { OrderStatusBadge } from './OrderStatusBadge';
-import { PaymentBadge } from './PaymentBadge';
+import { PaymentStatusBadge } from './PaymentBadge';
+import { paymentGatewayLabel, paymentMethodLabel } from '@/lib/status';
 import { UpdateStatusDialog } from './UpdateStatusDialog';
 
 function RowActions({ order, onUpdate }: { order: OrderListItemDto; onUpdate: () => void }) {
@@ -107,7 +108,9 @@ export function OrdersTable({
             <TH>Customer</TH>
             <TH>Total Amount</TH>
             <TH>Payment Method</TH>
-            <TH>Status</TH>
+            <TH>Payment Gateway</TH>
+            <TH>Payment Status</TH>
+            <TH>Order Status</TH>
             <TH>Created At</TH>
             <TH className="text-right">Actions</TH>
           </TR>
@@ -125,8 +128,10 @@ export function OrdersTable({
                 <span className="block text-xs text-slate-400">{o.customer.email}</span>
               </TD>
               <TD className="text-slate-800">{formatMoney(o.totalAmount)}</TD>
+              <TD className="text-xs font-medium text-slate-700">{o.payment ? paymentMethodLabel(o.payment) : <span className="text-slate-400">—</span>}</TD>
+              <TD className="text-xs text-slate-700">{o.payment ? paymentGatewayLabel(o.payment) : <span className="text-slate-400">—</span>}</TD>
               <TD>
-                <PaymentBadge payment={o.payment} />
+                <PaymentStatusBadge payment={o.payment} />
               </TD>
               <TD>
                 <OrderStatusBadge status={o.status} />

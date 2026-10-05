@@ -2,20 +2,22 @@
 
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
 
-export type PaymentMethod = 'RAZORPAY' | 'COD';
+export type PaymentMethod = 'ONLINE' | 'COD';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 
 export interface Store {
   name: string;
   currency: string;
-  /** `online` is false until the backend has Razorpay keys configured. */
+  /** `online` is false until the backend has PayU credentials configured. */
   payments: { cod: boolean; online: boolean };
 }
 
 export interface OrderPayment {
   method: PaymentMethod;
   status: PaymentStatus;
-  /** Instrument used at Razorpay: upi, card, wallet, netbanking, … */
+  /** 'PAYU' for online payments, null for COD. */
+  gateway: 'PAYU' | null;
+  /** Instrument used at the gateway: upi, card, wallet, netbanking, … */
   instrument: string | null;
   instrumentDetail: string | null;
   paidAt: string | null;
@@ -24,16 +26,10 @@ export interface OrderPayment {
   payableForSeconds: number;
 }
 
-/** What the backend returns to open Razorpay Checkout. Amount is the order total from the database. */
-export interface RazorpayCheckout {
-  keyId: string;
-  razorpayOrderId: string;
-  amount: number;
-  currency: string;
-  orderNumber: number;
-  expiresInSeconds: number;
-  storeName: string;
-  prefill: { name: string; email: string; contact?: string };
+/** Signed PayU Hosted Checkout form from the backend: posted as-is to `action`. Amount is the order total from the database. */
+export interface PayuCheckout {
+  action: string;
+  fields: Record<string, string>;
 }
 
 export interface Customer {

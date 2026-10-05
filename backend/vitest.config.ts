@@ -10,10 +10,11 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       AUTO_SEED: 'false',
-      // Fake credentials: the Razorpay HTTP client is mocked in tests, only the HMAC secrets are real.
-      RAZORPAY_KEY_ID: 'rzp_test_dummykey',
-      RAZORPAY_KEY_SECRET: 'test_key_secret',
-      RAZORPAY_WEBHOOK_SECRET: 'test_webhook_secret',
+      // Fake credentials: PayU's Verify / Refund API calls are mocked in tests, only the hashing is real.
+      PAYU_MERCHANT_KEY: 'testkey',
+      PAYU_SALT: 'test_salt',
+      PAYU_SUCCESS_URL: 'https://shop.example.com/payment/success',
+      PAYU_FAILURE_URL: 'https://shop.example.com/payment/failure',
     },
     globalSetup: ['./tests/global-setup.ts'],
     setupFiles: ['./tests/setup.ts'],

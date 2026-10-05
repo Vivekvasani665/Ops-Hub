@@ -26,7 +26,7 @@ export function isTerminal(status: OrderStatus): boolean {
 }
 
 /**
- * Transitions available for a concrete order: an online (Razorpay) order cannot move forward until its
+ * Transitions available for a concrete order: an online order cannot move forward until its
  * payment has been captured and verified by the backend, but it can always be cancelled.
  */
 export function allowedTransitions(
@@ -34,6 +34,6 @@ export function allowedTransitions(
   payment?: { method: PaymentMethod; status: PaymentStatus } | null,
 ): readonly OrderStatus[] {
   const next = ORDER_TRANSITIONS[status];
-  if (payment?.method === 'RAZORPAY' && payment.status !== 'PAID') return next.filter((s) => s === 'CANCELLED');
+  if (payment?.method === 'ONLINE' && payment.status !== 'PAID') return next.filter((s) => s === 'CANCELLED');
   return next;
 }

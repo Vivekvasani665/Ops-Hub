@@ -7,7 +7,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, MapPin, X } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { PAYMENT_STATUS_LABEL, STATUS_LABEL, dateTime, money, paymentMethodLabel } from '@/lib/format';
-import { payWithRazorpay, type PaymentOutcome, type PaymentStage, type PreferredMethod } from '@/lib/razorpay';
+import { redirectToPayu } from '@/lib/payu';
 import type { Order, OrderStatus } from '@/lib/types';
 import { useProductMedia } from '@/lib/useProductMedia';
 import { RequireAuth } from '@/components/RequireAuth';
@@ -60,16 +60,14 @@ function Tracking({ order }: { order: Order }) {
   );
 }
 
-const OUTCOME_MESSAGE: Record<Exclude<PaymentOutcome['kind'], 'paid'>, { tone: 'error' | 'info'; text: string }> = {
-  cancelled: { tone: 'info', text: 'Payment cancelled. Your order is saved — you can pay whenever you are ready.' },
-  failed: { tone: 'error', text: 'Payment failed. Please try again or choose another payment method.' },
-  verification_failed: {
-    tone: 'error',
-    text: 'We could not verify this payment. If money was deducted, it will be confirmed or refunded automatically.',
-  },
-  timeout: { tone: 'error', text: 'The payment timed out. Please try again.' },
+/** `?payment=` set by the PayU return handler (/payment/success|failure) or by a redirect that could not start. */
+const OUTCOME_MESSAGE: Record<string, { tone: 'error' | 'info'; title?: string; text: string }> = {
+  failed: { tone: 'error', title: 'Payment Failed', text: 'Your payment was not completed.' },
+  cancelled: { tone: 'info', text: 'Payment was cancelled. Your order is saved — you can pay whenever you are ready.' },
+  pending: { tone: 'info', text: 'Payment is still processing. This page updates once PayU confirms it.' },
+  invalid: { tone: 'error', text: 'Payment verification failed. If money was deducted, it will be confirmed or refunded automatically.' },
+  init_failed: { tone: 'error', text: 'Unable to initialize payment. Please try again.' },
   closed: { tone: 'error', text: 'This order can no longer be paid online.' },
-  network: { tone: 'error', text: 'Network error while processing the payment. We are checking its status with the bank.' },
 };
 
 function countdown(seconds: number) {
@@ -77,15 +75,14 @@ function countdown(seconds: number) {
   return `${m}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-/** Online payment panel of an unpaid order: retry, status check and the payment window countdown. */
+/** Online payment panel of an unpaid order: retry on PayU, status check and the payment window countdown. */
 function PayNow({ order, onOrder, initialOutcome }: { order: Order; onOrder: (o: Order) => void; initialOutcome: string | null }) {
   const router = useRouter();
   const [secondsLeft, setSecondsLeft] = useState(order.payment?.payableForSeconds ?? 0);
-  const [stage, setStage] = useState<PaymentStage | 'checking' | null>(null);
-  const [message, setMessage] = useState<{ tone: 'error' | 'info'; text: string } | null>(
-    initialOutcome && initialOutcome in OUTCOME_MESSAGE ? OUTCOME_MESSAGE[initialOutcome as keyof typeof OUTCOME_MESSAGE] : null,
+  const [stage, setStage] = useState<'redirecting' | 'checking' | null>(null);
+  const [message, setMessage] = useState(
+    initialOutcome ? (OUTCOME_MESSAGE[initialOutcome] ?? null) : order.payment?.status === 'FAILED' ? OUTCOME_MESSAGE.failed! : null,
   );
-  const [method, setMethod] = useState<PreferredMethod>('upi');
 
   useEffect(() => setSecondsLeft(order.payment?.payableForSeconds ?? 0), [order]);
   useEffect(() => {
@@ -98,48 +95,36 @@ function PayNow({ order, onOrder, initialOutcome }: { order: Order; onOrder: (o:
     try {
       const fresh = await api.reconcilePayment(order.id);
       onOrder(fresh);
-      if (fresh.payment?.status === 'PAID') setMessage(null);
-      return fresh;
+      if (fresh.payment?.status === 'PAID') router.replace(`/orders/${order.id}/success`);
+      else setMessage({ tone: 'info', text: 'We have not received a successful payment for this order yet.' });
     } catch {
       setMessage({ tone: 'error', text: 'Could not check the payment status. Please try again in a moment.' });
-      return null;
     } finally {
       setStage(null);
     }
-  }, [order.id, onOrder]);
+  }, [order.id, onOrder, router]);
 
   async function pay() {
     setMessage(null);
-    const outcome = await payWithRazorpay(order.id, method, setStage);
+    setStage('redirecting');
+    const failure = await redirectToPayu(order.id);
     setStage(null);
-    if (outcome.kind === 'paid') {
-      onOrder(outcome.order);
+    if (failure === 'already_paid') {
       router.replace(`/orders/${order.id}/success`);
       return;
     }
-    if (outcome.kind === 'network' && outcome.maybePaid) {
-      setMessage({ tone: 'info', text: outcome.message });
-      await check();
-      return;
-    }
-    const base = OUTCOME_MESSAGE[outcome.kind];
-    const text =
-      outcome.kind === 'failed'
-        ? `Payment failed: ${outcome.message}. Please try again or choose another payment method.`
-        : 'message' in outcome
-          ? outcome.message
-          : base.text;
-    setMessage({ tone: base.tone, text });
-    if (outcome.kind === 'closed') onOrder(await api.order(order.id));
+    setMessage(OUTCOME_MESSAGE[failure]!);
+    if (failure === 'closed') onOrder(await api.order(order.id));
   }
 
   const busy = stage !== null;
   const expired = secondsLeft <= 0;
+  const retry = message?.title === 'Payment Failed' || initialOutcome === 'cancelled' || initialOutcome === 'init_failed';
 
   return (
     <section className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-semibold">Complete your payment</h2>
+        <h2 className="font-semibold">{message?.title ?? 'Complete your payment'}</h2>
         {!expired && (
           <p className="text-sm text-slate-600">
             Order held for <span className="font-medium tabular-nums">{countdown(secondsLeft)}</span>
@@ -147,50 +132,18 @@ function PayNow({ order, onOrder, initialOutcome }: { order: Order; onOrder: (o:
         )}
       </div>
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
-      {order.payment?.lastError && !message && <Alert>Last attempt: {order.payment.lastError}</Alert>}
+      {order.payment?.lastError && message?.title === 'Payment Failed' && <p className="text-xs text-slate-500">Reason: {order.payment.lastError}</p>}
       {expired ? (
         <Alert>The payment window has closed. This order will be cancelled and its items released.</Alert>
       ) : (
-        <>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Preferred payment method">
-            {(
-              [
-                ['upi', 'UPI / QR'],
-                ['card', 'Card'],
-                ['other', 'Wallet / net banking'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={method === value}
-                onClick={() => setMethod(value)}
-                disabled={busy}
-                className={cx(
-                  'rounded-lg px-3 py-1.5 text-sm ring-1',
-                  method === value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={pay} loading={busy && stage !== 'checking'} disabled={busy}>
-              {stage === 'starting'
-                ? 'Loading payment…'
-                : stage === 'awaiting'
-                  ? 'Waiting for payment…'
-                  : stage === 'verifying'
-                    ? 'Verifying payment…'
-                    : `Pay ${money(order.totalAmount)}`}
-            </Button>
-            <Button variant="secondary" onClick={check} loading={stage === 'checking'} disabled={busy}>
-              I already paid — check status
-            </Button>
-          </div>
-        </>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={pay} loading={stage === 'redirecting'} disabled={busy}>
+            {stage === 'redirecting' ? 'Redirecting to PayU…' : retry ? 'Try Again' : `Pay ${money(order.totalAmount)}`}
+          </Button>
+          <Button variant="secondary" onClick={check} loading={stage === 'checking'} disabled={busy}>
+            I already paid — check status
+          </Button>
+        </div>
       )}
     </section>
   );
@@ -214,7 +167,7 @@ function OrderDetail() {
   // An unpaid online order may have been paid while the browser lost the result: ask the backend to check.
   useEffect(() => {
     if (!order || reconciled.current) return;
-    if (order.payment?.method === 'RAZORPAY' && order.payment.status === 'PENDING' && order.status === 'PENDING') {
+    if (order.payment?.method === 'ONLINE' && order.payment.status !== 'PAID' && order.status === 'PENDING' && order.payment.payableForSeconds > 0) {
       reconciled.current = true;
       api.reconcilePayment(order.id).then(setOrder, () => undefined);
     }
@@ -237,7 +190,7 @@ function OrderDetail() {
     <div className="space-y-6">
       {justPlaced && (
         <Alert tone="success">
-          {payment?.method === 'RAZORPAY' && payment.status === 'PAID'
+          {payment?.method === 'ONLINE' && payment.status === 'PAID'
             ? <>Payment successful! Your order <strong>#{order.orderNumber}</strong> is confirmed.</>
             : <>Thank you! Your order <strong>#{order.orderNumber}</strong> has been placed.</>}
         </Alert>

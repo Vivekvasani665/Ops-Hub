@@ -1,6 +1,6 @@
 import { Router, type CookieOptions, type Request, type Response } from 'express';
 import { Types, type FilterQuery } from 'mongoose';
-import { env, razorpayEnabled } from '../../config/env';
+import { env, payuEnabled } from '../../config/env';
 import { validateBody } from '../../middlewares/validation.middleware';
 import { idempotency } from '../../middlewares/idempotency.middleware';
 import { apiRateLimit, loginRateLimit } from '../../middlewares/rate-limit.middleware';
@@ -11,7 +11,7 @@ import { Product, type ProductDoc } from '../products/product.model';
 import { Order, type OrderDoc } from '../orders/order.model';
 import { createOrder } from '../orders/order.service';
 import { AppError } from '../../utils/errors';
-import { paymentSecondsLeft, reconcileOrderPayment, startRazorpayPayment, verifyCheckoutPayment } from '../payments/payment.service';
+import { paymentSecondsLeft, reconcileOrderPayment, startPayuPayment } from '../payments/payment.service';
 import * as customerAuth from './customer-auth.service';
 import { authenticateCustomer, resolveStore } from './storefront.middleware';
 import {
@@ -19,9 +19,7 @@ import {
   customerLoginSchema,
   registerCustomerSchema,
   startPaymentSchema,
-  verifyPaymentSchema,
   type CheckoutInput,
-  type VerifyPaymentInput,
 } from './storefront.schemas';
 
 /**
@@ -71,8 +69,8 @@ storefrontRouter.get('/store', (req, res) => {
     data: {
       name: req.store!.name,
       currency: req.store!.currency,
-      // Only the public key id ever leaves the server; the checkout uses the one returned per payment.
-      payments: { cod: true, online: razorpayEnabled },
+      // PayU's salt never leaves the server; the checkout form is signed per payment attempt.
+      payments: { cod: true, online: payuEnabled },
     },
   });
 });
@@ -255,13 +253,14 @@ function toCustomerOrder(o: OrderDoc & { _id: unknown; createdAt: Date; updatedA
       ? {
           method: o.paymentMethod,
           status: o.paymentStatus ?? 'PENDING',
+          gateway: o.payment?.gateway ?? null,
           instrument: o.payment?.instrument ?? null,
           instrumentDetail: o.payment?.instrumentDetail ?? null,
           paidAt: o.payment?.paidAt ? new Date(o.payment.paidAt).toISOString() : null,
           lastError: o.payment?.lastError ?? null,
           // Seconds left to complete an online payment; 0 once the order no longer accepts one.
           payableForSeconds:
-            o.paymentMethod === 'RAZORPAY' && o.paymentStatus === 'PENDING' && o.status === 'PENDING'
+            o.paymentMethod === 'ONLINE' && (o.paymentStatus === 'PENDING' || o.paymentStatus === 'FAILED') && o.status === 'PENDING'
               ? paymentSecondsLeft(new Date(o.createdAt))
               : 0,
         }
@@ -309,7 +308,7 @@ storefrontRouter.post(
   async (req: Request, res: Response) => {
     const body = req.body as CheckoutInput;
     const c = req.customer!;
-    if (body.paymentMethod === 'RAZORPAY' && !razorpayEnabled) {
+    if (body.paymentMethod === 'ONLINE' && !payuEnabled) {
       throw new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Online payments are not available right now, choose cash on delivery');
     }
     const created = await createOrder(
@@ -330,33 +329,24 @@ storefrontRouter.post(
   },
 );
 
-// ---------- online payments (Razorpay) ----------
+// ---------- online payments (PayU Hosted Checkout) ----------
 
-/** Razorpay order for one of the customer's unpaid orders; called for the first attempt and every retry. */
-storefrontRouter.post('/payments/razorpay/order', authenticateCustomer, validateBody(startPaymentSchema), async (req, res) => {
+/**
+ * Signed PayU checkout form for one of the customer's unpaid orders; called for the first attempt and every
+ * retry. The amount, txnid and hash are computed here from the database; the browser only submits the form.
+ */
+storefrontRouter.post('/payments/payu/create', authenticateCustomer, validateBody(startPaymentSchema), async (req, res) => {
   const c = req.customer!;
-  const checkout = await startRazorpayPayment(req.tenantId!, c.id, new Types.ObjectId(req.body.orderId));
   const profile = await customerAuth.getProfile(c.id);
-  res.json({
-    data: {
-      ...checkout,
-      storeName: req.store!.name,
-      prefill: { name: c.name, email: c.email, contact: profile.phone ?? undefined },
-    },
-  });
+  const checkout = await startPayuPayment(req.tenantId!, { ...c, phone: profile.phone }, new Types.ObjectId(req.body.orderId));
+  res.json({ data: checkout });
 });
 
-/** Checkout success callback; the order is marked paid only after server-side verification. */
-storefrontRouter.post('/payments/razorpay/verify', authenticateCustomer, validateBody(verifyPaymentSchema), async (req, res) => {
-  const order = await verifyCheckoutPayment(req.tenantId!, req.customer!.id, req.body as VerifyPaymentInput);
-  res.json({ data: toCustomerOrder(order!) });
-});
-
-/** "Did my payment go through?" — asks Razorpay directly, for when the checkout result never reached us. */
-storefrontRouter.post('/payments/razorpay/reconcile', authenticateCustomer, validateBody(startPaymentSchema), async (req, res) => {
+/** "Did my payment go through?" — asks PayU directly, for when the redirect back never reached us. */
+storefrontRouter.post('/payments/payu/reconcile', authenticateCustomer, validateBody(startPaymentSchema), async (req, res) => {
   const filter = { _id: new Types.ObjectId(req.body.orderId), ...ownOrders(req) };
   const order = await Order.findOne(filter).lean();
   if (!order) throw Errors.notFound('Order');
-  if (razorpayEnabled) await reconcileOrderPayment(order);
+  if (payuEnabled) await reconcileOrderPayment(order);
   res.json({ data: toCustomerOrder((await Order.findOne(filter).lean())!) });
 });

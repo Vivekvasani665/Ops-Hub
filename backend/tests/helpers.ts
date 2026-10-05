@@ -15,12 +15,11 @@ import { Notification } from '../src/modules/notifications/notification.model';
 import { IdempotencyKey } from '../src/modules/idempotency/idempotency.model';
 import { RefreshToken } from '../src/modules/auth/refresh-token.model';
 import { Customer, CustomerSession } from '../src/modules/storefront/customer.model';
-import { PaymentEvent } from '../src/modules/payments/payment-event.model';
 import { Category } from '../src/modules/categories/category.model';
 import { Coupon } from '../src/modules/coupons/coupon.model';
 import { Media } from '../src/modules/media/media.model';
 
-export const ALL_MODELS = [Organization, User, Product, Inventory, Order, Counter, AuditLog, Job, Notification, IdempotencyKey, RefreshToken, Customer, CustomerSession, PaymentEvent, Category, Coupon, Media];
+export const ALL_MODELS = [Organization, User, Product, Inventory, Order, Counter, AuditLog, Job, Notification, IdempotencyKey, RefreshToken, Customer, CustomerSession, Category, Coupon, Media];
 export const PASSWORD = 'Password123!';
 const passwordHash = bcrypt.hashSync(PASSWORD, 4);
 

@@ -143,7 +143,7 @@ export default function CartPage() {
           </Link>
           <div className="space-y-2 border-t border-slate-100 pt-4">
             <p className="flex items-center gap-2 text-xs text-slate-500">
-              <ShieldCheck className="size-4 text-emerald-600" /> Secure checkout powered by Razorpay
+              <ShieldCheck className="size-4 text-emerald-600" /> Secure checkout powered by PayU
             </p>
             <PaymentMarks />
           </div>

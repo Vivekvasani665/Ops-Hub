@@ -99,7 +99,7 @@ export function UpdateStatusDialog({ order, onClose }: { order: OrderListItemDto
               placeholder={status === 'CANCELLED' ? 'Customer requested cancellation' : 'Visible in the order history'}
             />
           </Field>
-          {order.payment?.method === 'RAZORPAY' && order.payment.status !== 'PAID' && (
+          {order.payment?.method === 'ONLINE' && order.payment.status !== 'PAID' && (
             <p className="text-xs text-amber-700">Online payment isn't complete, so this order can only be cancelled.</p>
           )}
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

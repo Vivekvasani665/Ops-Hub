@@ -13,3 +13,10 @@ export function PaymentBadge({ payment }: { payment: Pick<OrderPaymentDto, 'meth
     </span>
   );
 }
+
+/** Payment status alone (orders table column). */
+export function PaymentStatusBadge({ payment }: { payment: Pick<OrderPaymentDto, 'status'> | null }) {
+  if (!payment) return <span className="text-slate-400">—</span>;
+  const meta = PAYMENT_STATUS_META[payment.status];
+  return <Badge tone={meta.tone}>{meta.label}</Badge>;
+}

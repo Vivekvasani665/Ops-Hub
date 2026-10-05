@@ -6,6 +6,7 @@ import type {
   JobType,
   NotificationType,
   OrderStatus,
+  PaymentGateway,
   PaymentMethod,
   PaymentStatus,
   Role,
@@ -62,12 +63,16 @@ export interface OrderStatusChangeDto {
 export interface OrderPaymentDto {
   method: PaymentMethod;
   status: PaymentStatus;
-  /** Instrument actually used at Razorpay: upi, card, wallet, netbanking, … */
+  /** PAYU for online orders; null for COD. */
+  gateway: PaymentGateway | null;
+  /** Instrument actually used at the gateway: upi, card, wallet, netbanking, … */
   instrument: string | null;
-  /** e.g. "Visa •••• 1111", "PhonePe", "name@okhdfc" */
+  /** e.g. "Card •••• 1111", "HDFC Bank" */
   instrumentDetail: string | null;
-  razorpayOrderId: string | null;
-  razorpayPaymentId: string | null;
+  /** Our PayU transaction id (txnid) of the latest attempt. */
+  gatewayOrderId: string | null;
+  /** PayU's id of the successful transaction (mihpayid). */
+  gatewayTransactionId: string | null;
   paidAt: string | null;
   refundedAt: string | null;
 }
@@ -95,7 +100,7 @@ export interface OrderListItemDto {
   itemCount: number;
   totalAmount: number;
   status: OrderStatus;
-  payment: Pick<OrderPaymentDto, 'method' | 'status' | 'instrument'> | null;
+  payment: Pick<OrderPaymentDto, 'method' | 'status' | 'gateway' | 'instrument'> | null;
   createdAt: string;
 }
 

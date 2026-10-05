@@ -1,4 +1,4 @@
-import type { JobStatus, OrderPaymentDto, OrderStatus, PaymentStatus, StockStatus } from '@/shared';
+import type { JobStatus, OrderPaymentDto, OrderStatus, PaymentGateway, PaymentStatus, StockStatus } from '@/shared';
 import type { Tone } from '@/components/ui/Badge';
 
 export const ORDER_STATUS_META: Record<OrderStatus, { label: string; tone: Tone; color: string }> = {
@@ -49,8 +49,17 @@ const INSTRUMENT_LABEL: Record<string, string> = {
   paylater: 'Pay later',
 };
 
-/** "COD", "UPI", "Card", … or "Online" while a Razorpay payment has not happened yet. */
+/** "COD", "Online", or "Online · UPI" once the gateway reported the instrument used. */
 export function paymentMethodLabel(payment: Pick<OrderPaymentDto, 'method' | 'instrument'>): string {
   if (payment.method === 'COD') return 'COD';
-  return (payment.instrument && INSTRUMENT_LABEL[payment.instrument]) || 'Online';
+  const instrument = payment.instrument && (INSTRUMENT_LABEL[payment.instrument] ?? payment.instrument);
+  return instrument ? `Online · ${instrument}` : 'Online';
+}
+
+const GATEWAY_LABEL: Record<PaymentGateway, string> = { PAYU: 'PayU' };
+
+/** "PayU" for online orders, "None" for COD. */
+export function paymentGatewayLabel(payment: Pick<OrderPaymentDto, 'method' | 'gateway'>): string {
+  if (payment.gateway) return GATEWAY_LABEL[payment.gateway];
+  return payment.method === 'ONLINE' ? 'PayU' : 'None';
 }

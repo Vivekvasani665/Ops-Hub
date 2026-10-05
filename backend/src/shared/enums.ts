@@ -8,9 +8,13 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-/** RAZORPAY covers every online method (UPI, UPI QR, cards, wallets, net banking). Staff-created orders have none. */
-export const PAYMENT_METHODS = ['RAZORPAY', 'COD'] as const;
+/** ONLINE covers every method the gateway offers (UPI, cards, net banking, wallets). Staff-created orders have none. */
+export const PAYMENT_METHODS = ['ONLINE', 'COD'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+/** Gateway that processed an ONLINE payment; COD orders have none. */
+export const PAYMENT_GATEWAYS = ['PAYU'] as const;
+export type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
 
 export const PAYMENT_STATUSES = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
